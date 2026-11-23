@@ -446,7 +446,7 @@ async function pavedAlternateCore(main){
 
 /* ============ Along the route: bumps, crossings, fuel, weather ============ */
 const METEO='https://api.open-meteo.com/v1/forecast';
-function overpass(q,ms){return Promise.any(OVERPASS.map(u=>tfetch(u,{method:'POST',body:'data='+encodeURIComponent(q)},ms||80000).then(r=>{if(!r.ok)throw new Error(r.status);return r.json()})))}
+function overpass(q,ms){return Promise.any(OVERPASS.map(u=>tfetch(u,{method:'POST',body:'data='+encodeURIComponent(q)},ms||80000).then(r=>{if(!r.ok)throw new Error(r.status);return r.json()}).then(j=>{if(/error/i.test(j.remark||''))throw new Error(j.remark);return j})))}
 function routePts(route){
   const pts=[],mi=[];let acc=0;
   for(const r of route.runs) r.c.forEach((p,i)=>{if(pts.length&&i===0)return;if(pts.length)acc+=milesBetween(pts[pts.length-1],p);pts.push(p);mi.push(acc)});
@@ -471,8 +471,12 @@ async function extras(route){
   const rp=routePts(route);if(rp.pts.length<2) return {obs:[],fuel:[]};
   const ids=(route.ways||[]).slice(0,6000);
   const obsQ='[out:json][timeout:75];way(id:'+ids.join(',')+')->.w;(node(w.w)["traffic_calming"];node(w.w)["barrier"~"^(cattle_grid|gate|lift_gate)$"];node(w.w)["ford"];);out;';
-  const k=Math.max(1,Math.ceil(rp.pts.length/250));const line=[];for(let i=0;i<rp.pts.length;i+=k)line.push(rp.pts[i]);line.push(rp.pts[rp.pts.length-1]);
-  const fuelQ='[out:json][timeout:85];nwr["amenity"~"^(fuel|charging_station)$"](around:3200,'+line.map(p=>p[0].toFixed(4)+','+p[1].toFixed(4)).join(',')+');out center tags;';
+  // Fuel: one small box per ~20 miles of route (bbox lookups are much cheaper than a buffer around the line).
+  const boxes=[];let bx=null,st=0;
+  rp.pts.forEach((p,i)=>{if(!bx){bx=[p[0],p[1],p[0],p[1]];st=rp.mi[i]}bx=[Math.min(bx[0],p[0]),Math.min(bx[1],p[1]),Math.max(bx[2],p[0]),Math.max(bx[3],p[1])];
+    if(rp.mi[i]-st>=20||i===rp.pts.length-1){boxes.push(bx);bx=null}});
+  const pad=0.035;
+  const fuelQ='[out:json][timeout:85];('+boxes.map(b=>'nwr["amenity"~"^(fuel|charging_station)$"]('+[b[0]-pad,b[1]-pad,b[2]+pad,b[3]+pad].map(v=>v.toFixed(4)).join(',')+');').join('')+');out center tags;';
   const [o,f]=await Promise.all([ids.length?overpass(obsQ).catch(()=>null):Promise.resolve({elements:[]}),overpass(fuelQ,90000).catch(()=>null)]);
   let obs=null,fuel=null;
   if(o){obs=[];for(const e of o.elements||[]){const kd=obsKind(e.tags||{});if(!kd)continue;const q=nearest(rp,[e.lat,e.lon]);if(q.d>0.1)continue;
