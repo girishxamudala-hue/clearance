@@ -1,4 +1,4 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><style>body{margin:0}[hidden]{display:none!important}img{max-width:100%}</style></head><body><title>Clearance Road Check</title>
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><link rel="manifest" href="manifest.json"><meta name="theme-color" content="#1859a8"><link rel="apple-touch-icon" href="icon-192.png"><meta name="apple-mobile-web-app-capable" content="yes"><style>body{margin:0}[hidden]{display:none!important}img{max-width:100%}</style></head><body><title>Clearance Road Check</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap">
@@ -179,6 +179,22 @@ a.link:hover{text-decoration:underline}
 .mk{width:26px;height:26px;border-radius:50%;display:grid;place-items:center;color:#fff;font:600 12px/1 var(--f-mono);border:2px solid var(--casing);box-shadow:0 1px 4px rgba(0,0,0,.35)}
 .mk.end{background:var(--ink);color:var(--panel)} .mk.stop{background:var(--stop)} .mk.caution{background:var(--caution)}
 .mk.small{width:20px;height:20px;font-size:10px}
+.poi{width:18px;height:18px;border-radius:5px;display:grid;place-items:center;font:600 9px/1 var(--f-mono);color:#fff;border:1.5px solid var(--casing);box-shadow:0 1px 3px rgba(0,0,0,.3)}
+.poi.obs{background:var(--caution);border-radius:50%}
+.poi.fuel{background:#5b6876}.poi.ev{background:#1d8a4e}
+.swaprow{justify-content:space-between}
+.garage{display:flex;flex-wrap:wrap;gap:6px}
+.gchip{display:inline-flex;align-items:stretch;border:1px solid var(--line);border-radius:999px;overflow:hidden;background:var(--panel)}
+.gchip button{border:0;background:transparent;padding:5px 10px;font-size:12.5px;cursor:pointer}
+.gchip button+button{padding:5px 9px 5px 4px;color:var(--muted)}
+.gchip[aria-current="true"]{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+.gchip button:hover{background:var(--soft)}
+.disc{font-size:12px;color:var(--muted);margin:0}
+.olist{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:2px}
+.olist button{width:100%;display:flex;justify-content:space-between;gap:10px;border:0;background:transparent;padding:5px 6px;border-radius:6px;cursor:pointer;text-align:left;font-size:13px}
+.olist button:hover{background:var(--soft)}
+.olist .m{font-family:var(--f-mono);font-size:11.5px;color:var(--muted);white-space:nowrap}
+.card.wx-wet{border-color:color-mix(in srgb,var(--caution) 50%,transparent)}
 </style>
 
 <div class="app">
@@ -188,7 +204,7 @@ a.link:hover{text-decoration:underline}
         <h1>Clear<span>ance</span></h1>
         <p>Check every mile of a road trip against your car's ride height.</p>
       </div>
-      <span class="mode" id="mode">Checking</span>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px"><span class="mode" id="mode">Checking</span><button type="button" class="btn ghost small" id="install" hidden>Install app</button></div>
     </header>
 
     <section class="block" id="routeSec" aria-labelledby="routeL">
@@ -198,10 +214,12 @@ a.link:hover{text-decoration:underline}
           <div class="inrow"><input id="from" class="input" placeholder="Address, place, or lat, lon" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="fromList">
             <button type="button" class="iconbtn" id="locate" title="Use my location" aria-label="Use my location"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg></button></div>
           <ul class="sugg" id="fromList" role="listbox" hidden></ul></div>
-        <div class="swaprow"><button type="button" class="btn ghost small" id="swap" aria-label="Swap start and destination">Swap</button></div>
+        <div class="swaprow"><button type="button" class="btn ghost small" id="addStop">Add a stop</button><button type="button" class="btn ghost small" id="swap" aria-label="Swap start and destination">Swap</button></div>
+        <div id="stops" class="block"></div>
         <div class="field ac"><label for="to">Destination</label>
           <input id="to" class="input" placeholder="Your Airbnb, a trailhead, a campsite" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="toList">
           <ul class="sugg" id="toList" role="listbox" hidden></ul></div>
+        <label class="check"><input type="checkbox" id="avoid"> Avoid unpaved roads</label>
         <button class="btn" id="go" type="submit">Check this route</button>
       </form>
       <p class="note" id="modeNote" hidden></p>
@@ -210,6 +228,7 @@ a.link:hover{text-decoration:underline}
 
     <section class="block" aria-labelledby="carL">
       <p class="label" id="carL">Your car</p>
+      <div class="garage" id="garage" aria-label="My garage"></div>
       <div class="row">
         <div class="field"><label for="make">Make</label><select id="make" class="input"></select></div>
         <div class="field"><label for="model">Model</label><select id="model" class="input"></select></div>
@@ -228,6 +247,7 @@ a.link:hover{text-decoration:underline}
       <label class="check" id="useLiftRow"><input type="checkbox" id="useLift" checked> I'll raise the nose lift on rough sections</label>
       <label class="check"><input type="checkbox" id="rain"> It rained here recently</label>
       <p class="eff" id="eff"></p>
+      <div><button type="button" class="btn ghost small" id="saveGarage">Save this car to my garage</button></div>
     </section>
 
     <section id="trips" class="block" aria-labelledby="tripsL" hidden>
@@ -240,6 +260,7 @@ a.link:hover{text-decoration:underline}
     <footer class="foot">
       <p>Road data from OpenStreetMap contributors (surface, track grade, smoothness, 4WD tags). Routing and elevation by Valhalla on openstreetmap.de. Map tiles by OpenStreetMap and Esri.</p>
       <p>Clearance figures for preset cars are approximate. Measure your own car at its lowest point (usually the front splitter) and type it in. Mapped data can be missing or out of date, so treat a green route as a good sign, not a guarantee.</p>
+      <p><b>Safety:</b> Clearance is a planning aid. Always look at the road yourself before you drive it, never drive into water you can't see the bottom of, and turn around if a road looks worse than shown. You are responsible for where you take your car. Speed bumps and fuel from OpenStreetMap via Overpass; weather from Open-Meteo.</p>
     </footer>
   </aside>
   <main class="mapwrap">
@@ -273,21 +294,24 @@ async function geocode(q,el){
   if(!j.length) throw new Error('Could not find "'+q+'". Try a fuller address or paste coordinates like 29.33, -103.53.');
   return {lat:+j[0].lat,lon:+j[0].lon,label:j[0].display_name.split(',').slice(0,2).join(',')};
 }
-async function valRoute(a,b,auto,avoid){
-  const body={locations:[{lat:a.lat,lon:a.lon},{lat:b.lat,lon:b.lon}],costing:'auto',units:'miles',costing_options:{auto:auto||{}}};
+async function valRoute(locs,auto,avoid){
+  const body={locations:locs.map(p=>({lat:p.lat,lon:p.lon})),costing:'auto',units:'miles',costing_options:{auto:auto||{}}};
   if(avoid&&avoid.length) body.exclude_polygons=avoid;
   const r=await tfetch(VAL+'/route',{method:'POST',body:JSON.stringify(body)},30000);
   const j=await r.json();
   if(!j.trip){
     // The public Valhalla server caps routes at 1,000 km. Long road trips are routed by OSRM instead,
     // then read edge by edge from Valhalla in chunks (see traceEdges).
-    if(!avoid&&!(auto&&auto.exclude_unpaved)&&/distance/i.test(j.error||'')) return osrmRoute(a,b);
+    if(!avoid&&!(auto&&auto.exclude_unpaved)&&/distance/i.test(j.error||'')) return osrmRoute(locs);
     throw new Error(j.error||'No route found');
   }
-  return {shape:j.trip.legs[0].shape,miles:j.trip.summary.length,minutes:Math.round(j.trip.summary.time/60)};
+  const legs=j.trip.legs;
+  let shape=legs[0].shape;
+  if(legs.length>1){const pts=[];legs.forEach((l,k)=>{const d=decode(l.shape);pts.push(...(k?d.slice(1):d))});shape=encode(pts)}
+  return {shape,miles:j.trip.summary.length,minutes:Math.round(j.trip.summary.time/60)};
 }
-async function osrmRoute(a,b){
-  const r=await tfetch(OSRM+a.lon+','+a.lat+';'+b.lon+','+b.lat+'?overview=full&geometries=polyline6',{},30000);
+async function osrmRoute(locs){
+  const r=await tfetch(OSRM+locs.map(p=>p.lon+','+p.lat).join(';')+'?overview=full&geometries=polyline6',{},30000);
   const j=await r.json();
   if(j.code!=='Ok'||!j.routes||!j.routes.length) throw new Error('No route found between those places.');
   return {shape:j.routes[0].geometry,miles:j.routes[0].distance/1609.34,minutes:Math.round(j.routes[0].duration/60),long:true};
@@ -344,23 +368,25 @@ async function elevation(shape,miles){
   return (j.range_height||[]).filter(p=>p[1]!=null).map(p=>[+(p[0]/1609.34).toFixed(3),Math.round(p[1])]);
 }
 function buildRuns(pts,edges,tags){
+  // fd: OpenStreetMap marks the way itself as a ford (water crossing).
   const runs=[];
   for(const e of edges){
     const t=(tags&&tags[e.way_id])||{};
     const run={c:pts.slice(e.begin_shape_index,e.end_shape_index+1),mi:e.length||0,s:e.surface||'paved',n:(e.names&&e.names[0])||'',rc:e.road_class||'',
-      hw:t.highway||'',st:t.surface||'',tt:t.tracktype||'',sm:t.smoothness||'',fwd:t['4wd_only']==='yes'?1:0,up:e.max_upward_grade||0,dn:e.max_downward_grade||0};
+      hw:t.highway||'',st:t.surface||'',tt:t.tracktype||'',sm:t.smoothness||'',fwd:t['4wd_only']==='yes'?1:0,fd:t.ford&&t.ford!=='no'?1:0,up:e.max_upward_grade||0,dn:e.max_downward_grade||0};
     const p=runs[runs.length-1];
-    const k=r=>[r.s,r.n,r.rc,r.hw,r.st,r.tt,r.sm,r.fwd].join('|');
+    const k=r=>[r.s,r.n,r.rc,r.hw,r.st,r.tt,r.sm,r.fwd,r.fd].join('|');
     if(p&&k(p)===k(run)){p.c=p.c.concat(run.c.slice(1));p.mi+=run.mi;p.up=Math.max(p.up,run.up);p.dn=Math.min(p.dn,run.dn)}
     else runs.push(run);
   }
   return runs;
 }
-async function buildRoute(a,b,auto,avoid,onProgress){
-  const r=await valRoute(a,b,auto,avoid);
+async function buildRoute(locs,auto,avoid,onProgress){
+  const r=await valRoute(locs,auto,avoid);
   const tr=await traceEdges(r.shape,onProgress);
   const [tags,elev]=await Promise.all([osmTags(tr.edges.map(e=>e.way_id)).catch(()=>null),elevation(r.shape,r.miles).catch(()=>null)]);
-  return {from:a,to:b,miles:r.miles,minutes:r.minutes,runs:buildRuns(tr.pts,tr.edges,tags),elev,tagsOk:!!tags};
+  return {from:locs[0],to:locs[locs.length-1],locs,miles:r.miles,minutes:r.minutes,runs:buildRuns(tr.pts,tr.edges,tags),elev,tagsOk:!!tags,
+    ways:[...new Set(tr.edges.map(e=>e.way_id).filter(Boolean))]};
 }
 const isUnpaved=r=>roadRisk(r,false,true).lvl>=2;
 const milesBetween=(a,b)=>Math.hypot((a[1]-b[1])*Math.cos(a[0]*Math.PI/180)*69.1,(a[0]-b[0])*69.1);
@@ -379,10 +405,10 @@ async function pavedAlternate(main){
   let j=runs.length-1;while(j>0&&at[j]>=we)j--;
   const sub=runs.slice(i,j+1),A=sub[0].c[0],B=sub[sub.length-1].c[sub[sub.length-1].c.length-1];
   const subMi=sub.reduce((s,r)=>s+r.mi,0);
-  const subMain={from:{lat:A[0],lon:A[1]},to:{lat:B[0],lon:B[1]},runs:sub,miles:subMi};
+  const subMain={from:{lat:A[0],lon:A[1]},to:{lat:B[0],lon:B[1]},locs:[{lat:A[0],lon:A[1]},{lat:B[0],lon:B[1]}],runs:sub,miles:subMi};
   const subAlt=await pavedAlternateCore(subMain);
   if(!subAlt) return null;
-  const alt={from:main.from,to:main.to,runs:runs.slice(0,i).concat(subAlt.runs,runs.slice(j+1)),
+  const alt={from:main.from,to:main.to,locs:main.locs,ways:(subAlt.ways||[]).concat(main.ways||[]),runs:runs.slice(0,i).concat(subAlt.runs,runs.slice(j+1)),
     miles:main.miles-subMi+subAlt.miles,minutes:Math.round(main.minutes*(1-subMi/main.miles)+subAlt.minutes),elev:null,tagsOk:subAlt.tagsOk};
   alt.unpavedMi=unpavedOf(alt);
   return alt;
@@ -391,22 +417,23 @@ async function pavedAlternateCore(main){
   const unpavedMi=unpavedOf(main);
   if(unpavedMi<0.15) return null;
   let alt=null;
-  try{alt=await buildRoute(main.from,main.to,{exclude_unpaved:true})}catch(e){alt=null}
+  const locs=main.locs||[main.from,main.to];
+  try{alt=await buildRoute(locs,{exclude_unpaved:true})}catch(e){alt=null}
   if(!alt||unpavedOf(alt)>unpavedMi-0.2){
     // Strict paved routing failed (often the start or end is itself on dirt). Instead, block the
     // unpaved roads in the middle of the trip with small exclusion boxes and re-route, up to 4 times.
-    alt=null;const S=[main.from.lat,main.from.lon],E=[main.to.lat,main.to.lon],boxes=[];let cur=main;
+    alt=null;const keep=locs.map(p=>[p.lat,p.lon]),boxes=[];let cur=main;
     for(let it=0;it<4;it++){
       let added=0;
       for(const r of cur.runs){
         if(!isUnpaved(r)||r.c.length<2) continue;
         for(const f of (r.mi<0.3?[0.5]:[0.25,0.5,0.75])){
-          const p=pointAt(r.c,f);if(milesBetween(p,S)<0.4||milesBetween(p,E)<0.4) continue;
+          const p=pointAt(r.c,f);if(keep.some(q=>milesBetween(p,q)<0.4)) continue;
           const d=0.0004;boxes.push([[p[1]-d,p[0]-d],[p[1]+d,p[0]-d],[p[1]+d,p[0]+d],[p[1]-d,p[0]+d],[p[1]-d,p[0]-d]]);added++;
         }
       }
       if(!added) break;
-      let next;try{next=await buildRoute(main.from,main.to,{},boxes.slice())}catch(e){break}
+      let next;try{next=await buildRoute(locs,{},boxes.slice())}catch(e){break}
       if(!alt||unpavedOf(next)<unpavedOf(alt)) alt=next;
       cur=next;if(unpavedOf(next)<0.15) break;
     }
@@ -415,6 +442,70 @@ async function pavedAlternateCore(main){
   alt.unpavedMi=unpavedOf(alt);
   if(alt.unpavedMi>unpavedMi-0.2) return null;
   return alt;
+}
+
+/* ============ Along the route: bumps, crossings, fuel, weather ============ */
+const METEO='https://api.open-meteo.com/v1/forecast';
+function overpass(q,ms){return Promise.any(OVERPASS.map(u=>tfetch(u,{method:'POST',body:'data='+encodeURIComponent(q)},ms||35000).then(r=>{if(!r.ok)throw new Error(r.status);return r.json()})))}
+function routePts(route){
+  const pts=[],mi=[];let acc=0;
+  for(const r of route.runs) r.c.forEach((p,i)=>{if(pts.length&&i===0)return;if(pts.length)acc+=milesBetween(pts[pts.length-1],p);pts.push(p);mi.push(acc)});
+  const scale=route.runs.reduce((s,r)=>s+r.mi,0)/(acc||1);
+  return {pts,mi:mi.map(m=>m*scale)};
+}
+function nearest(rp,p){
+  const n=rp.pts.length,k=Math.max(1,Math.ceil(n/3000));let best=1e9,bi=0;
+  for(let i=0;i<n;i+=k){const d=milesBetween(rp.pts[i],p);if(d<best){best=d;bi=i}}
+  for(let i=Math.max(0,bi-k);i<Math.min(n,bi+k+1);i++){const d=milesBetween(rp.pts[i],p);if(d<best){best=d;bi=i}}
+  return {mi:rp.mi[bi],d:best};
+}
+function obsKind(t){
+  const tc=t.traffic_calming;
+  if(tc){if(/^(bump|hump|yes|table|cushion|mini_bumps|speed_bump|speed_hump)$/.test(tc))return 'bump';if(tc==='dip')return 'dip';return null}
+  if(t.barrier==='cattle_grid')return 'cattle';
+  if(t.barrier==='gate'||t.barrier==='lift_gate')return 'gate';
+  if(t.ford&&t.ford!=='no')return 'ford';
+  return null;
+}
+async function extras(route){
+  const rp=routePts(route);if(rp.pts.length<2) return {obs:[],fuel:[]};
+  const ids=(route.ways||[]).slice(0,6000);
+  const obsQ='[out:json][timeout:40];way(id:'+ids.join(',')+')->.w;(node(w.w)["traffic_calming"];node(w.w)["barrier"~"^(cattle_grid|gate|lift_gate)$"];node(w.w)["ford"];);out;';
+  const k=Math.max(1,Math.ceil(rp.pts.length/250));const line=[];for(let i=0;i<rp.pts.length;i+=k)line.push(rp.pts[i]);line.push(rp.pts[rp.pts.length-1]);
+  const fuelQ='[out:json][timeout:50];nwr["amenity"~"^(fuel|charging_station)$"](around:3200,'+line.map(p=>p[0].toFixed(4)+','+p[1].toFixed(4)).join(',')+');out center tags;';
+  const [o,f]=await Promise.all([ids.length?overpass(obsQ).catch(()=>null):Promise.resolve({elements:[]}),overpass(fuelQ,55000).catch(()=>null)]);
+  let obs=null,fuel=null;
+  if(o){obs=[];for(const e of o.elements||[]){const kd=obsKind(e.tags||{});if(!kd)continue;const q=nearest(rp,[e.lat,e.lon]);if(q.d>0.1)continue;
+    if(obs.some(x=>x.k===kd&&Math.abs(x.mi-q.mi)<0.02))continue;obs.push({k:kd,mi:q.mi,p:[e.lat,e.lon]})}
+    obs.sort((a,b)=>a.mi-b.mi)}
+  if(f){fuel=[];for(const e of f.elements||[]){const la=e.lat??(e.center&&e.center.lat),lo=e.lon??(e.center&&e.center.lon);if(la==null)continue;const t=e.tags||{};
+    const q=nearest(rp,[la,lo]);if(q.d>2)continue;const kd=t.amenity==='fuel'?'fuel':'ev';
+    fuel.push({k:kd,mi:q.mi,d:q.d,p:[la,lo],name:t.name||t.brand||t.operator||(kd==='fuel'?'Gas station':'EV charger')})}
+    fuel.sort((a,b)=>a.mi-b.mi)}
+  return {obs,fuel};
+}
+async function weather(route){
+  const pts=[];
+  for(const r of route.runs){if(!isUnpaved(r)||r.c.length<2)continue;const p=pointAt(r.c,0.5);if(pts.every(q=>milesBetween(q,p)>8))pts.push(p);if(pts.length>=8)break}
+  if(!pts.length) return null;
+  const u=METEO+'?latitude='+pts.map(p=>p[0].toFixed(3)).join(',')+'&longitude='+pts.map(p=>p[1].toFixed(3)).join(',')+'&daily=precipitation_sum&past_days=3&forecast_days=3&precipitation_unit=inch&timezone=auto';
+  const j=await (await tfetch(u,{},12000)).json();
+  let past=0,next=0;
+  for(const x of (Array.isArray(j)?j:[j])){const ps=(x.daily&&x.daily.precipitation_sum)||[];
+    past=Math.max(past,ps.slice(0,3).reduce((s,v)=>s+(v||0),0));next=Math.max(next,ps.slice(3).reduce((s,v)=>s+(v||0),0))}
+  return {past,next,n:pts.length,t:Date.now()};
+}
+// Sharp crests and dips: big change in grade between neighbouring elevation samples (only when samples are close together).
+function crests(elev,clr){
+  if(!elev||elev.length<5||clr>=5.5) return [];
+  const sp=elev[elev.length-1][0]*1609.34/(elev.length-1);if(sp>160) return [];
+  const out=[];
+  for(let i=1;i<elev.length-1;i++){
+    const d1=(elev[i][0]-elev[i-1][0])*1609.34,d2=(elev[i+1][0]-elev[i][0])*1609.34;if(d1<20||d2<20)continue;
+    const dg=(elev[i+1][1]-elev[i][1])/d2*100-(elev[i][1]-elev[i-1][1])/d1*100;
+    if(Math.abs(dg)>=12&&(!out.length||elev[i][0]-out[out.length-1].mi>0.15)) out.push({k:dg<0?'crest':'sag',mi:elev[i][0],dg:Math.round(Math.abs(dg))});
+  }
+  return out.slice(0,12);
 }
 
 /* ============ Drivability model ============ */
@@ -493,6 +584,7 @@ const $=id=>document.getElementById(id);
 const fmt=(x,d)=>x.toFixed(d==null?1:d);
 const esc=s=>String(s).replace(/[&<>"]/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch]));
 const css=v=>getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+let rainTouched=false, deferredInstall=null;
 let LIVE=false, current=null, showAlt=true, map=null, layer=null, baseLayers={}, baseKind='map', baseFailed=false;
 
 const carDef=()=>CARS.find(c=>c.make===$('make').value&&c.model===$('model').value&&c.gen===$('gen').value)||CARS[0];
@@ -554,7 +646,7 @@ function initMap(){
 }
 
 function colorOf(c){return css('--'+c)}
-function drawRoute(an,alt,altAn){
+function drawRoute(an,alt,altAn,obs){
   layer.clearLayers();
   const casing=css('--casing');
   if(alt&&showAlt&&altAn){
@@ -572,6 +664,9 @@ function drawRoute(an,alt,altAn){
   warnSegs(an).forEach((s,i)=>{
     L.marker(s.runs[0].c[0],{icon:L.divIcon({className:'',html:'<div class="mk small '+s.color+'">'+(i+1)+'</div>',iconSize:[20,20],iconAnchor:[10,10]})}).bindTooltip(esc(s.n||'Unnamed road')+' · '+esc(s.surf)).addTo(layer);
   });
+  (obs||[]).forEach(o=>{if(o.p)L.marker(o.p,{icon:L.divIcon({className:'',html:'<div class="poi obs">'+OBS[o.k][1]+'</div>',iconSize:[18,18],iconAnchor:[9,9]})}).bindTooltip(esc(OBS[o.k][0])+' · mi '+fmt(o.mi)).addTo(layer)});
+  const fu=current&&current.ex&&current.ex.fuel;
+  if(fu) fu.forEach(f=>L.marker(f.p,{icon:L.divIcon({className:'',html:'<div class="poi '+f.k+'">'+(f.k==='ev'?'EV':'G')+'</div>',iconSize:[18,18],iconAnchor:[9,9]})}).bindTooltip(esc(f.name)+' · mi '+fmt(f.mi)+(f.d>0.3?' · '+fmt(f.d)+' mi off route':'')).addTo(layer));
 }
 function boundsOf(runs){const b=L.latLngBounds([]);runs.forEach(r=>r.c.forEach(p=>b.extend(p)));return b}
 function warnSegs(an){return an.segs.filter(s=>s.color!=='go'&&(s.mi>=0.03||s.color==='stop')).slice(0,30)}
@@ -616,7 +711,7 @@ function gmaps(route,via){
   if(via&&via.length)u+='&waypoints='+via.map(p=>p[0].toFixed(5)+','+p[1].toFixed(5)).join('%7C');
   return u;
 }
-function viaPoints(route){const all=[];route.runs.forEach(r=>r.c.forEach(p=>all.push(p)));if(all.length<8)return[];return [0.25,0.5,0.75].map(f=>all[Math.floor(all.length*f)])}
+function viaPoints(route){if(route.locs&&route.locs.length>2)return route.locs.slice(1,-1).map(p=>[p.lat,p.lon]);const all=[];route.runs.forEach(r=>r.c.forEach(p=>all.push(p)));if(all.length<8)return[];return [0.25,0.5,0.75].map(f=>all[Math.floor(all.length*f)])}
 
 function render(){
   if(!current) return;
@@ -633,6 +728,9 @@ function render(){
   h+='<div class="verdict '+an.verdict+'"><h2><span class="lamp"></span>'+V[0]+'</h2><p>'+esc(line)+'</p>'+
      '<div class="bar" aria-hidden="true"><i style="width:'+pct(an.tot.go)+';background:var(--go)"></i><i style="width:'+pct(an.tot.caution)+';background:var(--caution)"></i><i style="width:'+pct(an.tot.stop)+';background:var(--stop)"></i></div>'+
      '<div class="stats"><div class="stat"><b>'+fmt(current.main.miles)+'</b><span>miles</span></div><div class="stat"><b>'+Math.floor(current.main.minutes/60)+'h '+String(current.main.minutes%60).padStart(2,'0')+'</b><span>drive time</span></div><div class="stat"><b>'+fmt(an.unpavedMi)+'</b><span>mi unpaved</span></div><div class="stat"><b>'+fmt(an.tot.stop)+'</b><span>mi red</span></div></div></div>';
+  h+='<p class="disc">Ratings come from crowd-mapped data and can be wrong. Look at each rough section yourself before you drive it.</p>';
+  if(current.avoided){const av=current.avoided;
+    h+='<p class="note">'+(av.already?'Avoid unpaved is on. This route was already paved end to end.':av.found?'Avoid unpaved is on. This route skips '+fmt(av.skipped)+' mi of unpaved road'+(current.main.unpavedMi>0.05?'; '+fmt(current.main.unpavedMi)+' mi could not be avoided':'')+'.':'Avoid unpaved is on, but no paved way around was found, so this is the normal route.')+'</p>'}
   h+='<div class="legend"><span><i style="background:var(--go)"></i>OK for your car</span><span><i style="background:var(--caution)"></i>Slow, careful</span><span><i style="background:var(--stop)"></i>Too rough</span>'+(alt?'<span><i style="background:var(--accent)"></i>Paved alternate</span>':'')+'</div>';
   if(an.firstRough){
     h+='<div class="card"><h3>Pavement ends at mile '+fmt(an.firstRough.a)+'</h3><p>'+esc(an.firstRough.n||'An unnamed road')+' turns to '+esc(surfaceText(an.firstRough).toLowerCase())+'. '+(an.lastPaved?'If you want to park and walk or wait for a pickup, the last paved spot is just before it.':'The route starts on it.')+'</p>'+
@@ -646,6 +744,42 @@ function render(){
     h+='<div class="card"><h3>No paved way around</h3><p>Routing found no paved road that avoids these sections. Plan to park at the last paved spot, or bring a higher car.</p></div>';
   }
   h+='<div class="actions"><a class="link" target="_blank" rel="noopener" href="'+gmaps(current.main,viaPoints(current.main))+'">Open this route in Google Maps for turn-by-turn</a></div>';
+  const ex=current.ex,wx=current.wx;
+  // Weather on the dirt
+  if(wx){const wet=wx.past>=0.2,soon=wx.next>=0.2;
+    h+='<div class="card'+(wet||soon?' wx-wet':'')+'"><h3>'+(wet?'Recent rain on the dirt sections':soon?'Rain forecast on the dirt sections':'Dry on the dirt sections')+'</h3><p>'+
+      (wet?'About '+fmt(wx.past,2)+' in of rain fell near the unpaved roads in the last 3 days. Wet dirt gets soft and rutted, so '+(cr.rain?'those sections are rated one step worse.':'turn on "It rained here recently" above.'):'')+
+      (soon?(wet?' ':'')+'Up to '+fmt(wx.next,2)+' in is forecast over the next 3 days. If it rains before you go, expect them to get rougher.':'')+
+      (!wet&&!soon?fmt(wx.past,2)+' in in the last 3 days and '+fmt(wx.next,2)+' in forecast for the next 3, near the unpaved roads.':'')+
+      (current.wxAuto?' (Turned on automatically from the weather data.)':'')+'</p></div>'}
+  // Bumps, crossings and sharp grade changes
+  const obs=[];
+  if(ex&&ex.obs) obs.push(...ex.obs);
+  an.runs.filter(r=>r.fd).forEach(r=>obs.push({k:'ford',mi:r.a,p:r.c[0]}));
+  crests(current.main.elev,cr.clr).forEach(c=>obs.push(Object.assign(c,{p:atMile(an,c.mi)})));
+  obs.sort((a,b)=>a.mi-b.mi);
+  if(obs.length){
+    const cnt={};obs.forEach(o=>cnt[o.k]=(cnt[o.k]||0)+1);
+    const tips=[];
+    if(cnt.bump) tips.push('Cross speed bumps slowly and at an angle'+(cr.clr<4.8?', one front wheel at a time':'')+(cr.useLift?', with the nose lift up':'')+'.');
+    if(cnt.crest||cnt.sag||cnt.dip) tips.push('Sharp crests and dips are estimated from elevation data. Take them at walking pace so the splitter does not touch.');
+    if(cnt.cattle) tips.push('Cattle guards often have a raised lip at each end.');
+    if(cnt.ford) tips.push('A mapped water crossing is on this route. Do not drive a low car through water you cannot see the bottom of.');
+    if(cnt.gate) tips.push('Gates may be closed or locked.');
+    h+='<div class="card"><h3>'+Object.keys(cnt).map(k=>cnt[k]+' '+OBS[k][cnt[k]>1?2:0].toLowerCase()).join(', ')+'</h3><p>'+esc(tips.join(' '))+'</p><ul class="olist">'+
+      obs.slice(0,15).map((o,i)=>'<li><button type="button" data-o="'+i+'"><span>'+esc(OBS[o.k][0])+(o.dg?' (about '+o.dg+'% grade change)':'')+'</span><span class="m">MI '+fmt(o.mi)+'</span></button></li>').join('')+'</ul>'+(obs.length>15?'<p>And '+(obs.length-15)+' more, shown on the map.</p>':'')+'</div>';
+  }
+  // Fuel and charging
+  if(ex&&ex.fuel&&current.main.miles>=20){
+    const tot=an.miles,gap=list=>{const m=[0].concat(list.map(f=>f.mi),[tot]);let g=0,a=0;for(let i=1;i<m.length;i++)if(m[i]-m[i-1]>g){g=m[i]-m[i-1];a=m[i-1]}return {g,a}};
+    const gas=ex.fuel.filter(f=>f.k==='fuel'),ev=ex.fuel.filter(f=>f.k==='ev'),G=gap(gas),E=gap(ev);
+    let t=gas.length?'Longest stretch with no gas station near the route: '+fmt(G.g,0)+' mi (from mile '+fmt(G.a,0)+').':'No gas stations are mapped within 2 miles of this route. Fill up before you leave.';
+    if(an.firstRough){const lg=gas.filter(f=>f.mi<=an.firstRough.a).pop();if(lg)t+=' Last gas before the dirt: '+lg.name+' at mile '+fmt(lg.mi)+'.'}
+    t+=ev.length?' '+ev.length+' EV charging '+(ev.length>1?'spots':'spot')+' nearby; longest gap '+fmt(E.g,0)+' mi.':' No EV chargers are mapped near this route.';
+    h+='<div class="card"><h3>Fuel and charging</h3><p>'+esc(t)+'</p></div>';
+  }
+  if(current.exLoading) h+='<p class="note"><span class="spin"></span>Checking speed bumps, fuel stops and weather along the route.</p>';
+  else if(ex&&(!ex.obs||!ex.fuel)) h+='<p class="note">The speed bump and fuel servers are busy right now, so '+(!ex.obs&&!ex.fuel?'those checks were':!ex.obs?'the speed bump check was':'the fuel check was')+' skipped. Try again in a few minutes.</p>';
   const prof=profileSVG(an,current.main.elev);
   if(prof) h+='<div class="profile"><p class="label">Elevation (ft)</p>'+prof+'</div>';
   const ws=warnSegs(an);
@@ -656,28 +790,79 @@ function render(){
   if(!current.main.tagsOk) h+='<p class="note">Detailed road tags were not available for this check, so ratings use the basic surface only.</p>';
   $('results').innerHTML=h;
   $('results').querySelectorAll('.warn').forEach(b=>b.onclick=()=>{const s=an.segs[+b.dataset.i];map.fitBounds(boundsOf(s.runs),{padding:[60,60],maxZoom:15});if(matchMedia('(max-width:820px)').matches)$('map').scrollIntoView({behavior:'smooth'})});
+  $('results').querySelectorAll('.olist button').forEach(b=>b.onclick=()=>{const o=obs[+b.dataset.o];if(o.p){map.setView(o.p,17);if(matchMedia('(max-width:820px)').matches)$('map').scrollIntoView({behavior:'smooth'})}});
   const t=$('toggleAlt');if(t)t.onclick=()=>{showAlt=!showAlt;render()};
-  drawRoute(an,alt,altAn);
+  drawRoute(an,alt,altAn,obs);
   return an;
 }
+const OBS={bump:['Speed bump','B','Speed bumps'],dip:['Dip','D','Dips'],cattle:['Cattle guard','C','Cattle guards'],gate:['Gate','G','Gates'],ford:['Water crossing','W','Water crossings'],crest:['Sharp crest','^','Sharp crests'],sag:['Sharp dip','v','Sharp dips']};
+function atMile(an,m){const r=an.runs.find(r=>m>=r.a&&m<=r.b+1e-6)||an.runs[an.runs.length-1];return pointAt(r.c,Math.min(1,Math.max(0,(m-r.a)/(r.mi||1))))}
 function show(data,fit){current=data;render();if(fit!==false){map.invalidateSize();map.fitBounds(boundsOf(data.main.runs.concat(data.alt?data.alt.runs:[])),{padding:[40,40],maxZoom:16})}}
 
 async function runLive(e){
   e.preventDefault();
   const f=$('from').value.trim(),t=$('to').value.trim();
-  $('err').hidden=true;
+  $('err').hidden=true;if(LIVE)$('modeNote').hidden=true;
   if(!f||!t){$('err').textContent='Enter both a start and a destination.';$('err').hidden=false;return}
   const btn=$('go');btn.disabled=true;
   const step=s=>btn.innerHTML='<span class="spin"></span>'+s;
   try{
-    step('Finding places');const a=await geocode(f,$('from'));const b=await geocode(t,$('to'));
-    step('Routing and reading road tags');const main=await buildRoute(a,b,undefined,undefined,(d,n)=>step('Reading road details '+d+' of '+n));
-    show({main,alt:null,altChecked:false});
-    step('Looking for a paved alternate');const alt=await pavedAlternate(main);
-    show({main,alt,altChecked:true});
-    try{if(/^https?:$/.test(location.protocol)&&!/claude\.ai$/.test(location.hostname))history.replaceState(null,'','?from='+encodeURIComponent(f)+'&to='+encodeURIComponent(t))}catch(e){}
+    const stopEls=[...document.querySelectorAll('#stops input')].filter(x=>x.value.trim());
+    step('Finding places');const a=await geocode(f,$('from'));const vias=[];for(const el of stopEls)vias.push(await geocode(el.value.trim(),el));const b=await geocode(t,$('to'));
+    const locs=[a,...vias,b],avoid=$('avoid').checked;
+    step('Routing and reading road tags');const main0=await buildRoute(locs,undefined,undefined,(d,n)=>step('Reading road details '+d+' of '+n));
+    if(!avoid) show({main:main0,alt:null,altChecked:false});
+    step(avoid?'Finding a paved route':'Looking for a paved alternate');const alt=await pavedAlternate(main0);
+    const data=avoid?(alt?{main:alt,alt:null,altChecked:true,avoided:{found:true,skipped:unpavedOf(main0)-alt.unpavedMi}}:{main:main0,alt:null,altChecked:true,avoided:{already:unpavedOf(main0)<0.15}})
+      :{main:main0,alt,altChecked:true};
+    data.label={f,t,via:stopEls.map(x=>x.value.trim()),avoid};
+    data.exLoading=true;show(data);
+    try{if(/^https?:$/.test(location.protocol)&&!/claude\.ai$/.test(location.hostname)){const q=new URLSearchParams({from:f,to:t});data.label.via.forEach(v=>q.append('via',v));if(avoid)q.set('avoid','1');history.replaceState(null,'','?'+q.toString())}}catch(e){}
+    loadExtras(data);
   }catch(err){$('err').textContent=(err&&err.message)||'Something went wrong. Try again in a minute.';$('err').hidden=false}
   finally{btn.disabled=false;btn.textContent='Check this route'}
+}
+
+async function loadExtras(data){
+  const [ex,wx]=await Promise.all([extras(data.main).catch(()=>({obs:null,fuel:null})),weather(data.main).catch(()=>null)]);
+  data.ex=ex;data.wx=wx;data.exLoading=false;
+  if(current!==data) return;
+  if(wx&&wx.past>=0.2&&!rainTouched&&!$('rain').checked){$('rain').checked=true;data.wxAuto=true;syncCarUI()}
+  render();saveLast(data);
+}
+// The last checked route is kept on this device so it opens offline.
+function packRoute(r){return r&&Object.assign({},r,{ways:undefined,runs:r.runs.map(x=>Object.assign({},x,{c:encode(x.c,5)}))})}
+function unpackRoute(r){return r&&Object.assign({},r,{runs:r.runs.map(x=>Object.assign({},x,{c:decode(x.c,5)}))})}
+function saveLast(d){try{localStorage.setItem('clearance.last',JSON.stringify({t:Date.now(),label:d.label,main:packRoute(d.main),alt:packRoute(d.alt),altChecked:d.altChecked,avoided:d.avoided,ex:d.ex,wx:d.wx}))}catch(e){}}
+function loadLast(){try{const j=JSON.parse(localStorage.getItem('clearance.last')||'null');if(!j||!j.main)return null;j.main=unpackRoute(j.main);j.alt=unpackRoute(j.alt);return j}catch(e){return null}}
+
+/* ---- Stops ---- */
+let stopSeq=0;
+function addStop(val){
+  if(document.querySelectorAll('#stops .field').length>=3) return null;
+  const id='stop'+(++stopSeq),w=document.createElement('div');w.className='field ac';
+  w.innerHTML='<label for="'+id+'">Stop</label><div class="inrow"><input id="'+id+'" class="input" placeholder="Gas, lunch, a viewpoint" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="'+id+'List"><button type="button" class="iconbtn" aria-label="Remove stop">&times;</button></div><ul class="sugg" id="'+id+'List" role="listbox" hidden></ul>';
+  $('stops').appendChild(w);w.querySelector('.iconbtn').onclick=()=>{w.remove();syncStops()};
+  setupAutocomplete(id);if(val)$(id).value=val;syncStops();return $(id);
+}
+function syncStops(){$('addStop').hidden=document.querySelectorAll('#stops .field').length>=3}
+
+/* ---- Garage ---- */
+function carState(){return {make:$('make').value,model:$('model').value,gen:$('gen').value,stock:$('clr').value,lift:$('lift').value,susp:$('susp').value,drop:$('drop').value,lip:$('lip').checked,useLift:$('useLift').checked}}
+function applyCarState(s){pickCar(s.make,s.model,s.gen);$('clr').value=s.stock;$('lift').value=s.lift||'';$('susp').value=s.susp||'0';$('drop').value=s.drop||1;$('lip').checked=!!s.lip;$('useLift').checked=s.useLift!==false}
+function garageGet(){try{return JSON.parse(localStorage.getItem('clearance.garage')||'[]')}catch(e){return []}}
+function garageSet(g){try{localStorage.setItem('clearance.garage',JSON.stringify(g))}catch(e){}}
+function carLabel(s){const d=CARS.find(c=>c.make===s.make&&c.model===s.model&&c.gen===s.gen);let t=d&&!d.custom?d.n:'My car, '+s.stock+' in';
+  const yrs=d&&!d.custom?(s.gen.split(' · ')[0]||''):'';if(yrs&&yrs.length<=12&&/[A-Z]\d/.test(yrs))t+=' '+yrs;
+  const dr=s.susp==='custom'?parseFloat(s.drop)||0:+s.susp;if(dr)t+=', lowered';if(s.lip)t+=', lip';return t}
+const sameCar=(a,b)=>['make','model','gen','stock','lift','susp','drop','lip'].every(k=>String(a[k])===String(b[k]));
+function renderGarage(){
+  const g=garageGet(),cur=carState();
+  $('garage').innerHTML=g.map((s,i)=>'<span class="gchip" aria-current="'+sameCar(s,cur)+'"><button type="button" data-g="'+i+'">'+esc(carLabel(s))+'</button><button type="button" data-x="'+i+'" aria-label="Remove '+esc(carLabel(s))+' from garage">&times;</button></span>').join('');
+  $('garage').hidden=!g.length;
+  $('saveGarage').hidden=g.some(s=>sameCar(s,cur));
+  $('garage').querySelectorAll('[data-g]').forEach(b=>b.onclick=()=>{applyCarState(garageGet()[+b.dataset.g]);syncCarUI();saveCar();renderGarage();render()});
+  $('garage').querySelectorAll('[data-x]').forEach(b=>b.onclick=()=>{const g2=garageGet();g2.splice(+b.dataset.x,1);garageSet(g2);renderGarage()});
 }
 
 function demoChips(){
@@ -719,18 +904,31 @@ function setupAutocomplete(id){
 function emptyState(){
   $('results').innerHTML='<div class="empty"><h3>Where are you headed?</h3><ol><li>Pick your car and any mods below.</li><li>Type a start and a destination, like your Airbnb or a trailhead.</li><li>Every mile turns green, yellow or red for your ride height, with warnings, where the pavement ends and a paved alternate when there is one.</li></ol></div>';
 }
+function showLast(last,msg){
+  const lb=last.label||{};$('from').value=lb.f||'';$('to').value=lb.t||'';
+  document.querySelectorAll('#stops .field').forEach(x=>x.remove());(lb.via||[]).forEach(v=>addStop(v));$('avoid').checked=!!lb.avoid;
+  show({main:last.main,alt:last.alt,altChecked:last.altChecked,avoided:last.avoided,ex:last.ex,wx:last.wx,label:lb});
+  $('modeNote').textContent=msg;$('modeNote').hidden=false;
+}
 async function probe(){
   try{const r=await tfetch(VAL+'/status',{},6000);return r.ok}catch(e){return false}
 }
 async function boot(){
   fillCars();initMap();demoChips();setupAutocomplete('from');setupAutocomplete('to');
   setTimeout(()=>{map.invalidateSize();if(current)map.fitBounds(boundsOf(current.main.runs.concat(current.alt?current.alt.runs:[])),{padding:[40,40]})},300);
-  const changed=()=>{syncCarUI();saveCar();render()};
+  const changed=()=>{syncCarUI();saveCar();renderGarage();render()};
   $('make').onchange=()=>{fillModels();fillGens();setCar(carDef());changed()};
   $('model').onchange=()=>{fillGens();setCar(carDef());changed()};
   $('gen').onchange=()=>{setCar(carDef());changed()};
   ['clr','lift','drop'].forEach(id=>$(id).oninput=changed);
   ['susp','lip','useLift','rain'].forEach(id=>$(id).onchange=changed);
+  $('rain').addEventListener('change',()=>{rainTouched=true;if(current)current.wxAuto=false;render()});
+  $('saveGarage').onclick=()=>{const g=garageGet();g.push(carState());garageSet(g.slice(-8));renderGarage()};
+  $('addStop').onclick=()=>{const el=addStop();if(el)el.focus()};
+  renderGarage();
+  window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferredInstall=e;$('install').hidden=false});
+  $('install').onclick=async()=>{if(!deferredInstall)return;deferredInstall.prompt();try{await deferredInstall.userChoice}catch(e){}deferredInstall=null;$('install').hidden=true};
+  if('serviceWorker' in navigator&&location.protocol==='https:'&&/github\.io$/.test(location.hostname)) navigator.serviceWorker.register('sw.js').catch(()=>{});
   $('form').onsubmit=runLive;
   $('swap').onclick=()=>{const a=$('from'),b=$('to');const v=a.value,d={...a.dataset};a.value=b.value;Object.keys(a.dataset).forEach(k=>delete a.dataset[k]);Object.assign(a.dataset,b.dataset);b.value=v;Object.keys(b.dataset).forEach(k=>delete b.dataset[k]);Object.assign(b.dataset,d)};
   $('locate').onclick=()=>{
@@ -744,11 +942,15 @@ async function boot(){
   $('mode').textContent=LIVE?'Live data':'Preview';$('mode').classList.toggle('live',LIVE);
   if(LIVE){
     let q=null;try{q=new URLSearchParams(location.search)}catch(e){}
-    if(q&&q.get('from')&&q.get('to')){$('from').value=q.get('from');$('to').value=q.get('to');runLive({preventDefault(){}})}
+    if(q&&q.get('from')&&q.get('to')){$('from').value=q.get('from');$('to').value=q.get('to');q.getAll('via').forEach(v=>addStop(v));$('avoid').checked=q.get('avoid')==='1';runLive({preventDefault(){}})}
+    else{const last=loadLast();if(last&&last.label){showLast(last,'Your last checked route, saved on this device. Press Check this route to refresh it.')}}
   }
-  if(!LIVE){
+  const last=!LIVE&&loadLast();
+  if(last){
+    showLast(last,"You're offline or the route server is down, so this is your last checked route from "+new Date(last.t).toLocaleDateString()+'. Road data is as of then.');
+  } else if(!LIVE){
     $('trips').hidden=false;if(DEMO.length) pickDemo(0);
-    ['from','to','go','locate','swap'].forEach(id=>$(id).disabled=true);
+    ['from','to','go','locate','swap','addStop','avoid'].forEach(id=>$(id).disabled=true);
     $('modeNote').innerHTML=LIVE_URL?'Route search is off in this preview. <a class="link" target="_blank" rel="noopener" href="'+LIVE_URL+'">Open the live app</a> to check any trip.':'Route search is off in this preview. Open the downloadable copy to check any trip.';
     $('modeNote').hidden=false;
   }
