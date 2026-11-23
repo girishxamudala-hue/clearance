@@ -295,6 +295,7 @@ async function osrmRoute(a,b){
 function encode(pts,prec){const f=Math.pow(10,prec||6);let out='',pl=0,pn=0;const e=v=>{v=v<0?~(v<<1):(v<<1);let s='';while(v>=32){s+=String.fromCharCode((32|(v&31))+63);v>>=5}return s+String.fromCharCode(v+63)};
   for(const p of pts){const la=Math.round(p[0]*f),lo=Math.round(p[1]*f);out+=e(la-pl)+e(lo-pn);pl=la;pn=lo}return out}
 const TRACE_CHUNK=9000;   // the public server accepts at most 16,000 shape points per call
+const TRACE_MILES=105;    // ...and at most 200 km (124 mi) of road per call
 async function traceOne(shape){
   const attrs=['edge.surface','edge.way_id','edge.length','edge.road_class','edge.use','edge.unpaved','edge.max_upward_grade','edge.max_downward_grade','edge.names','edge.begin_shape_index','edge.end_shape_index','shape'];
   let last='Road details unavailable';
@@ -308,8 +309,14 @@ async function traceOne(shape){
 }
 async function traceEdges(shape,onProgress){
   const all=decode(shape);
-  if(all.length<=TRACE_CHUNK) return traceOne(shape);
-  const parts=[];for(let i=0;i<all.length-1;i+=TRACE_CHUNK) parts.push(all.slice(i,Math.min(all.length,i+TRACE_CHUNK+1)));
+  // Split by point count and by distance; consecutive parts share their boundary point.
+  const parts=[];let st=0,d=0;
+  for(let i=1;i<all.length;i++){
+    d+=milesBetween(all[i-1],all[i]);
+    if(i-st>=TRACE_CHUNK||d>=TRACE_MILES){parts.push(all.slice(st,i+1));st=i;d=0}
+  }
+  if(st<all.length-1||!parts.length) parts.push(all.slice(st));
+  if(parts.length===1) return traceOne(shape);
   const res=new Array(parts.length);let next=0,done=0;
   await Promise.all([0,1,2].map(async()=>{while(next<parts.length){const k=next++;res[k]=await traceOne(encode(parts[k]));done++;onProgress&&onProgress(done,parts.length)}}));
   const pts=[],edges=[];
@@ -529,7 +536,10 @@ function setCar(c){$('clr').value=c.clr;$('lift').value=c.lift||''}
 function saveCar(){try{localStorage.setItem('clearance.car3',JSON.stringify({make:$('make').value,model:$('model').value,gen:$('gen').value,stock:$('clr').value,lift:$('lift').value,susp:$('susp').value,drop:$('drop').value,lip:$('lip').checked,useLift:$('useLift').checked}))}catch(e){}}
 
 function initMap(){
-  map=L.map('map',{zoomControl:true,attributionControl:true}).setView([39.5,-98.35],4);
+  map=L.map('map',{zoomControl:true,attributionControl:true,minZoom:3,worldCopyJump:true}).setView([39.5,-98.35],4);
+  // Keep Leaflet's idea of the map size in sync with the page layout (otherwise a fit made while
+  // the map is resizing zooms all the way out to a strip of repeated world maps).
+  try{new ResizeObserver(()=>map.invalidateSize()).observe($('map'))}catch(e){}
   map.zoomControl.setPosition('bottomright');
   const dark=matchMedia('(prefers-color-scheme: dark)').matches&&document.documentElement.dataset.theme!=='light'||document.documentElement.dataset.theme==='dark';
   baseLayers.map=L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,className:dark?'tiles-dim':'',attribution:'&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors'});
@@ -650,7 +660,7 @@ function render(){
   drawRoute(an,alt,altAn);
   return an;
 }
-function show(data,fit){current=data;render();if(fit!==false)map.fitBounds(boundsOf(data.main.runs.concat(data.alt?data.alt.runs:[])),{padding:[40,40]})}
+function show(data,fit){current=data;render();if(fit!==false){map.invalidateSize();map.fitBounds(boundsOf(data.main.runs.concat(data.alt?data.alt.runs:[])),{padding:[40,40],maxZoom:16})}}
 
 async function runLive(e){
   e.preventDefault();
