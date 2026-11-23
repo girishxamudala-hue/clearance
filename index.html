@@ -1,0 +1,697 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><style>body{margin:0}[hidden]{display:none!important}img{max-width:100%}</style></head><body><title>Clearance Road Check</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap">
+<style>
+/* Layout: a sidebar "trip sheet" beside a full-height map; on phones the map sits on top and the sheet scrolls below. */
+:root{
+  --bg:#f3f5f7; --panel:#ffffff; --ink:#16202a; --muted:#5b6876; --line:#dde3e9; --soft:#eef2f6;
+  --accent:#1859a8; --accent-ink:#ffffff;
+  --go:#1d8a4e; --go-bg:#e5f4ec; --caution:#b97800; --caution-bg:#fbf1dc; --stop:#c8312a; --stop-bg:#fbe6e4;
+  --map-bg:#e4e8ec; --casing:#ffffff;
+  --f-display:"Barlow Condensed","Arial Narrow",Arial,sans-serif;
+  --f-body:Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0f141a; --panel:#151c24; --ink:#e7edf3; --muted:#9aa8b6; --line:#27313c; --soft:#1c2530;
+  --accent:#5b9cf0; --accent-ink:#0b1420;
+  --go:#3fbf78; --go-bg:#15301f; --caution:#e9ad2c; --caution-bg:#33270e; --stop:#f0625a; --stop-bg:#3a1715;
+  --map-bg:#1a222b; --casing:#0f141a; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0f141a; --panel:#151c24; --ink:#e7edf3; --muted:#9aa8b6; --line:#27313c; --soft:#1c2530;
+  --accent:#5b9cf0; --accent-ink:#0b1420;
+  --go:#3fbf78; --go-bg:#15301f; --caution:#e9ad2c; --caution-bg:#33270e; --stop:#f0625a; --stop-bg:#3a1715;
+  --map-bg:#1a222b; --casing:#0f141a; color-scheme:dark}
+
+html,body{height:100%}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:14px;line-height:1.45}
+*{box-sizing:border-box}
+button,input,select{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+.app{display:grid;grid-template-columns:minmax(340px,420px) minmax(0,1fr);height:100%}
+.panel{background:var(--panel);border-right:1px solid var(--line);overflow-y:auto;min-width:0;
+  padding-block:18px 28px;padding-left:max(18px,env(safe-area-inset-left,0px));padding-right:18px;display:flex;flex-direction:column;gap:18px}
+.mapwrap{position:relative;min-width:0}
+#map{position:absolute;inset:0;background:var(--map-bg)}
+
+.brand{display:flex;align-items:flex-end;justify-content:space-between;gap:12px}
+.brand h1{font-family:var(--f-display);font-weight:700;font-size:34px;letter-spacing:.02em;line-height:1;margin:0;text-transform:uppercase}
+.brand h1 span{color:var(--accent)}
+.brand p{margin:4px 0 0;color:var(--muted);font-size:13px}
+.mode{font-family:var(--f-mono);font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;padding:3px 7px;border-radius:4px;border:1px solid var(--line);color:var(--muted);white-space:nowrap}
+.mode.live{color:var(--go);border-color:var(--go)}
+
+.label{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:0 0 8px}
+.block{display:flex;flex-direction:column;gap:10px}
+.field{display:flex;flex-direction:column;gap:4px}
+.field label{font-size:12.5px;color:var(--muted)}
+.input{width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px;background:var(--panel)}
+.input:disabled{background:var(--soft);color:var(--muted)}
+.row{display:flex;gap:10px;flex-wrap:wrap}
+.row>.field{flex:1 1 120px;min-width:0}
+.check{display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer}
+.check input{accent-color:var(--accent);width:16px;height:16px}
+.unit{position:relative}
+.unit .input{padding-right:34px;font-family:var(--f-mono);font-size:13px}
+.unit::after{content:"in";position:absolute;right:11px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:12px}
+
+.btn{border:0;border-radius:8px;background:var(--accent);color:var(--accent-ink);font-weight:600;padding:10px 14px;cursor:pointer}
+.btn:disabled{opacity:.55;cursor:progress}
+.btn.ghost{background:transparent;color:var(--accent);border:1px solid var(--line);padding:7px 11px;font-weight:500}
+.chips{display:flex;flex-direction:column;gap:6px}
+.chip{display:flex;flex-direction:column;align-items:flex-start;gap:1px;text-align:left;padding:9px 11px;border:1px solid var(--line);border-radius:8px;background:var(--panel);cursor:pointer}
+.chip b{font-weight:600;font-size:13.5px}
+.chip small{color:var(--muted);font-size:12px}
+.chip[aria-pressed="true"]{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+.eff{margin:0;font-size:13px;color:var(--muted)}
+.eff b{color:var(--ink);font-family:var(--f-mono);font-weight:500}
+.ac{position:relative}
+.inrow{display:flex;gap:6px}
+.inrow .input{flex:1;min-width:0}
+.iconbtn{flex:none;width:40px;border:1px solid var(--line);border-radius:8px;background:var(--panel);color:var(--accent);display:grid;place-items:center;cursor:pointer}
+.iconbtn:hover{background:var(--soft)}
+.swaprow{display:flex;justify-content:flex-end;margin:-6px 0 -6px}
+.btn.small{padding:3px 10px;font-size:12px}
+.sugg{position:absolute;left:0;right:0;top:100%;z-index:1200;margin:4px 0 0;padding:4px;list-style:none;background:var(--panel);border:1px solid var(--line);border-radius:8px;box-shadow:0 6px 20px rgba(0,0,0,.18);max-height:260px;overflow:auto}
+.sugg li{padding:7px 9px;border-radius:6px;cursor:pointer;display:flex;flex-direction:column;gap:1px}
+.sugg li b{font-weight:500;font-size:13.5px}
+.sugg li small{color:var(--muted);font-size:12px}
+.sugg li[aria-selected="true"],.sugg li:hover{background:var(--soft)}
+.empty{display:flex;flex-direction:column;gap:10px;border:1px dashed var(--line);border-radius:10px;padding:14px}
+.empty h3{margin:0;font-size:15px}
+.empty ol{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:4px;color:var(--muted);font-size:13px}
+.note{font-size:12.5px;color:var(--muted);background:var(--soft);border-radius:8px;padding:9px 11px;margin:0}
+.err{font-size:13px;color:var(--stop);margin:0}
+
+.verdict{border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:10px;border:1px solid transparent}
+.verdict.go{background:var(--go-bg);border-color:color-mix(in srgb,var(--go) 35%,transparent)}
+.verdict.caution{background:var(--caution-bg);border-color:color-mix(in srgb,var(--caution) 40%,transparent)}
+.verdict.stop{background:var(--stop-bg);border-color:color-mix(in srgb,var(--stop) 40%,transparent)}
+.verdict h2{margin:0;font-family:var(--f-display);font-weight:700;font-size:26px;letter-spacing:.02em;text-transform:uppercase;line-height:1;display:flex;align-items:center;gap:9px}
+.verdict.go h2{color:var(--go)} .verdict.caution h2{color:var(--caution)} .verdict.stop h2{color:var(--stop)}
+.verdict p{margin:0;font-size:13.5px}
+.lamp{width:12px;height:12px;border-radius:50%;background:currentColor;flex:none}
+.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.stat{display:flex;flex-direction:column;gap:1px}
+.stat b{font-family:var(--f-mono);font-size:15px;font-variant-numeric:tabular-nums}
+.stat span{font-size:11px;color:var(--muted)}
+.bar{display:flex;height:8px;border-radius:4px;overflow:hidden;background:var(--soft)}
+.bar i{display:block;height:100%}
+
+.card{border:1px solid var(--line);border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:8px}
+.card h3{margin:0;font-size:14px;font-weight:600}
+.card p{margin:0;font-size:13px;color:var(--muted)}
+.card .actions{display:flex;gap:8px;flex-wrap:wrap}
+a.link{color:var(--accent);font-weight:500;text-decoration:none;font-size:13px}
+a.link:hover{text-decoration:underline}
+
+.warns{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.warn{display:grid;grid-template-columns:26px minmax(0,1fr);gap:10px;padding:10px;border-radius:9px;border:1px solid var(--line);cursor:pointer;background:var(--panel);text-align:left;width:100%}
+.warn:hover{background:var(--soft)}
+.pin{width:24px;height:24px;border-radius:50%;display:grid;place-items:center;font-family:var(--f-mono);font-size:11px;font-weight:500;color:#fff}
+.pin.stop{background:var(--stop)} .pin.caution{background:var(--caution)} .pin.go{background:var(--go)}
+.warn .t{font-weight:600;font-size:13.5px}
+.warn .m{font-family:var(--f-mono);font-size:11.5px;color:var(--muted);font-variant-numeric:tabular-nums}
+.warn .d{font-size:13px;margin-top:3px}
+.warn .tip{font-size:12.5px;color:var(--accent);margin-top:3px}
+
+.profile svg{width:100%;height:auto;display:block}
+.profile text{font-family:var(--f-mono);font-size:9px;fill:var(--muted)}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--muted)}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.legend i{width:16px;height:4px;border-radius:2px;display:inline-block}
+.foot{font-size:11.5px;color:var(--muted);border-top:1px solid var(--line);padding-top:12px;display:flex;flex-direction:column;gap:6px}
+.foot p{margin:0}
+
+.maptools{position:absolute;top:calc(10px + env(safe-area-inset-top,0px));right:max(10px,env(safe-area-inset-right,0px));z-index:1000;display:flex;gap:0;border-radius:8px;overflow:hidden;border:1px solid var(--line);background:var(--panel)}
+.maptools button{border:0;background:transparent;padding:7px 11px;font-size:12.5px;cursor:pointer}
+.maptools button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink)}
+.nobase{position:absolute;left:50%;bottom:calc(14px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:1000;font-size:12px;background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:5px 12px;color:var(--muted);max-width:calc(100% - 32px);text-align:center}
+.spin{display:inline-block;width:14px;height:14px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:sp .8s linear infinite;vertical-align:-2px;margin-right:6px}
+@keyframes sp{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion: reduce){.spin{animation:none}}
+
+@media (max-width:820px){
+  html,body{height:auto}
+  .app{display:flex;flex-direction:column;height:auto}
+  .mapwrap{height:52vh;min-height:300px;order:-1}
+  .panel{border-right:0;overflow:visible;padding-right:max(16px,env(safe-area-inset-right,0px));padding-left:max(16px,env(safe-area-inset-left,0px))}
+}
+
+/* Leaflet core (inlined subset of leaflet 1.9.4 css) */
+.leaflet-pane,.leaflet-tile,.leaflet-marker-icon,.leaflet-marker-shadow,.leaflet-tile-container,.leaflet-pane>svg,.leaflet-pane>canvas,.leaflet-zoom-box,.leaflet-image-layer,.leaflet-layer{position:absolute;left:0;top:0}
+.leaflet-container{overflow:hidden;-webkit-tap-highlight-color:transparent;font-family:var(--f-body)}
+.leaflet-tile,.leaflet-marker-icon,.leaflet-marker-shadow{user-select:none;-webkit-user-drag:none}
+.leaflet-container .leaflet-overlay-pane svg{max-width:none!important;max-height:none!important}
+.leaflet-container img.leaflet-tile,.leaflet-container .leaflet-marker-pane img{max-width:none!important;max-height:none!important;width:auto;padding:0}
+.leaflet-container.leaflet-touch-zoom{touch-action:pan-x pan-y}
+.leaflet-container.leaflet-touch-drag{touch-action:pinch-zoom}
+.leaflet-container.leaflet-touch-drag.leaflet-touch-zoom{touch-action:none}
+.leaflet-tile{filter:inherit;visibility:hidden}.leaflet-tile-loaded{visibility:inherit}
+.leaflet-zoom-box{width:0;height:0;box-sizing:border-box;z-index:800;border:2px dotted var(--accent)}
+.leaflet-pane{z-index:400}.leaflet-tile-pane{z-index:200}.leaflet-overlay-pane{z-index:400}.leaflet-shadow-pane{z-index:500}.leaflet-marker-pane{z-index:600}.leaflet-tooltip-pane{z-index:650}.leaflet-popup-pane{z-index:700}
+.leaflet-map-pane canvas{z-index:100}.leaflet-map-pane svg{z-index:200}
+.leaflet-control{position:relative;z-index:800;pointer-events:auto;float:left;clear:both}
+.leaflet-top,.leaflet-bottom{position:absolute;z-index:1000;pointer-events:none}
+.leaflet-top{top:0}.leaflet-right{right:0}.leaflet-bottom{bottom:0}.leaflet-left{left:0}
+.leaflet-right .leaflet-control{float:right}
+.leaflet-top .leaflet-control{margin-top:10px}.leaflet-bottom .leaflet-control{margin-bottom:0}.leaflet-left .leaflet-control{margin-left:10px}.leaflet-right .leaflet-control{margin-right:0}
+.leaflet-zoom-animated{transform-origin:0 0}
+.leaflet-zoom-anim .leaflet-zoom-animated{transition:transform .25s cubic-bezier(0,0,.25,1)}
+.leaflet-zoom-anim .leaflet-tile,.leaflet-pan-anim .leaflet-tile{transition:none}
+.leaflet-zoom-anim .leaflet-zoom-hide{visibility:hidden}
+.leaflet-interactive{cursor:pointer}.leaflet-grab{cursor:grab}.leaflet-dragging .leaflet-grab,.leaflet-dragging .leaflet-grab .leaflet-interactive{cursor:grabbing}
+.leaflet-marker-icon,.leaflet-pane>svg path,.leaflet-tile-container,.leaflet-image-layer{pointer-events:none}
+.leaflet-marker-icon.leaflet-interactive,.leaflet-pane>svg path.leaflet-interactive{pointer-events:auto}
+.leaflet-bar{border-radius:8px;overflow:hidden;border:1px solid var(--line)}
+.leaflet-bar a{display:block;width:32px;height:32px;line-height:30px;text-align:center;text-decoration:none;background:var(--panel);color:var(--ink);font:600 18px/30px var(--f-mono);border-bottom:1px solid var(--line)}
+.leaflet-bar a:last-child{border-bottom:0}
+.leaflet-bar a:hover{background:var(--soft)}
+.leaflet-bar a.leaflet-disabled{color:var(--muted);cursor:default}
+.leaflet-control-attribution{background:color-mix(in srgb,var(--panel) 85%,transparent);color:var(--muted);font-size:10.5px;padding:1px 6px;line-height:1.4}
+.leaflet-control-attribution a{color:var(--accent);text-decoration:none}
+.leaflet-tooltip{position:absolute;padding:6px 8px;background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:6px;white-space:nowrap;pointer-events:none;font-size:12px;box-shadow:0 2px 8px rgba(0,0,0,.18)}
+.leaflet-tooltip-top{margin-top:-8px}.leaflet-tooltip-bottom{margin-top:8px}.leaflet-tooltip-left{margin-left:-8px}.leaflet-tooltip-right{margin-left:8px}
+.leaflet-div-icon{background:none;border:0}
+.mk{width:26px;height:26px;border-radius:50%;display:grid;place-items:center;color:#fff;font:600 12px/1 var(--f-mono);border:2px solid var(--casing);box-shadow:0 1px 4px rgba(0,0,0,.35)}
+.mk.end{background:var(--ink);color:var(--panel)} .mk.stop{background:var(--stop)} .mk.caution{background:var(--caution)}
+.mk.small{width:20px;height:20px;font-size:10px}
+</style>
+
+<div class="app">
+  <aside class="panel">
+    <header class="brand">
+      <div>
+        <h1>Clear<span>ance</span></h1>
+        <p>Check every mile of a road trip against your car's ride height.</p>
+      </div>
+      <span class="mode" id="mode">Checking</span>
+    </header>
+
+    <section class="block" id="routeSec" aria-labelledby="routeL">
+      <p class="label" id="routeL">Your trip</p>
+      <form id="form" class="block" autocomplete="off">
+        <div class="field ac"><label for="from">Start</label>
+          <div class="inrow"><input id="from" class="input" placeholder="Address, place, or lat, lon" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="fromList">
+            <button type="button" class="iconbtn" id="locate" title="Use my location" aria-label="Use my location"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg></button></div>
+          <ul class="sugg" id="fromList" role="listbox" hidden></ul></div>
+        <div class="swaprow"><button type="button" class="btn ghost small" id="swap" aria-label="Swap start and destination">Swap</button></div>
+        <div class="field ac"><label for="to">Destination</label>
+          <input id="to" class="input" placeholder="Your Airbnb, a trailhead, a campsite" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="toList">
+          <ul class="sugg" id="toList" role="listbox" hidden></ul></div>
+        <button class="btn" id="go" type="submit">Check this route</button>
+      </form>
+      <p class="note" id="modeNote" hidden></p>
+      <p class="err" id="err" hidden></p>
+    </section>
+
+    <section class="block" aria-labelledby="carL">
+      <p class="label" id="carL">Your car</p>
+      <div class="row">
+        <div class="field"><label for="make">Make</label><select id="make" class="input"></select></div>
+        <div class="field"><label for="model">Model</label><select id="model" class="input"></select></div>
+      </div>
+      <div class="field"><label for="gen">Generation and years</label><select id="gen" class="input"></select></div>
+      <div class="row">
+        <div class="field"><label for="clr">Stock ground clearance</label><div class="unit"><input id="clr" class="input" type="number" step="0.1" min="2" max="14"></div></div>
+        <div class="field" id="liftField"><label for="lift">With nose lift</label><div class="unit"><input id="lift" class="input" type="number" step="0.1" min="0" max="14" placeholder="none"></div></div>
+      </div>
+      <div class="row">
+        <div class="field"><label for="susp">Suspension</label>
+          <select id="susp" class="input"><option value="0">Stock height</option><option value="1">Lowering springs (about 1 in)</option><option value="1.5">Coilovers, lowered (about 1.5 in)</option><option value="custom">Lowered, my own number</option></select></div>
+        <div class="field" id="dropField" hidden><label for="drop">Lowered by</label><div class="unit"><input id="drop" class="input" type="number" step="0.1" min="0" max="6" value="1"></div></div>
+      </div>
+      <label class="check"><input type="checkbox" id="lip"> Aftermarket front lip or splitter (about 0.75 in lower)</label>
+      <label class="check" id="useLiftRow"><input type="checkbox" id="useLift" checked> I'll raise the nose lift on rough sections</label>
+      <label class="check"><input type="checkbox" id="rain"> It rained here recently</label>
+      <p class="eff" id="eff"></p>
+    </section>
+
+    <section id="trips" class="block" aria-labelledby="tripsL" hidden>
+      <p class="label" id="tripsL">Example trips</p>
+      <div class="chips" id="demos"></div>
+    </section>
+
+    <section id="results" class="block" aria-live="polite"></section>
+
+    <footer class="foot">
+      <p>Road data from OpenStreetMap contributors (surface, track grade, smoothness, 4WD tags). Routing and elevation by Valhalla on openstreetmap.de. Map tiles by CARTO and Esri.</p>
+      <p>Clearance figures for preset cars are approximate. Measure your own car at its lowest point (usually the front splitter) and type it in. Mapped data can be missing or out of date, so treat a green route as a good sign, not a guarantee.</p>
+    </footer>
+  </aside>
+  <main class="mapwrap">
+    <div id="map" aria-label="Route map"></div>
+    <div class="maptools" role="group" aria-label="Map style">
+      <button type="button" id="bMap" aria-pressed="true">Map</button>
+      <button type="button" id="bSat" aria-pressed="false">Satellite</button>
+    </div>
+    <div class="nobase" id="nobase" hidden>Basemap is off in this preview. Route colors and warnings are live.</div>
+  </main>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+/* ============ Data pipeline (OpenStreetMap via Valhalla + Overpass + Nominatim) ============ */
+const VAL = 'https://valhalla1.openstreetmap.de';
+const OVERPASS = ['https://overpass.kumi.systems/api/interpreter','https://overpass-api.de/api/interpreter','https://overpass.private.coffee/api/interpreter'];
+const NOMI = 'https://nominatim.openstreetmap.org/search';
+const OSMAPI = 'https://api.openstreetmap.org/api/0.6/ways.json';
+
+function decode(str, prec){const f=Math.pow(10,prec||6);let i=0,lat=0,lon=0;const out=[];while(i<str.length){let b,s=0,r=0;do{b=str.charCodeAt(i++)-63;r|=(b&31)<<s;s+=5}while(b>=32);lat+=(r&1)?~(r>>1):(r>>1);s=0;r=0;do{b=str.charCodeAt(i++)-63;r|=(b&31)<<s;s+=5}while(b>=32);lon+=(r&1)?~(r>>1):(r>>1);out.push([lat/f,lon/f])}return out}
+async function tfetch(url, opts, ms){const c=new AbortController();const t=setTimeout(()=>c.abort(),ms||20000);try{const r=await fetch(url,Object.assign({},opts||{},{signal:c.signal}));return r}finally{clearTimeout(t)}}
+
+async function geocode(q,el){
+  if(el&&el.dataset.lat&&el.dataset.label===q) return {lat:+el.dataset.lat,lon:+el.dataset.lon,label:q};
+  const m=q.match(/^\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*$/);
+  if(m) return {lat:+m[1],lon:+m[2],label:q.trim()};
+  const r=await tfetch(NOMI+'?format=json&limit=1&q='+encodeURIComponent(q),{},15000);
+  const j=await r.json();
+  if(!j.length) throw new Error('Could not find "'+q+'". Try a fuller address or paste coordinates like 29.33, -103.53.');
+  return {lat:+j[0].lat,lon:+j[0].lon,label:j[0].display_name.split(',').slice(0,2).join(',')};
+}
+async function valRoute(a,b,auto,avoid){
+  const body={locations:[{lat:a.lat,lon:a.lon},{lat:b.lat,lon:b.lon}],costing:'auto',units:'miles',costing_options:{auto:auto||{}}};
+  if(avoid&&avoid.length) body.exclude_polygons=avoid;
+  const r=await tfetch(VAL+'/route',{method:'POST',body:JSON.stringify(body)},30000);
+  const j=await r.json();
+  if(!j.trip) throw new Error(j.error||'No route found');
+  return {shape:j.trip.legs[0].shape,miles:j.trip.summary.length,minutes:Math.round(j.trip.summary.time/60)};
+}
+async function traceEdges(shape){
+  const attrs=['edge.surface','edge.way_id','edge.length','edge.road_class','edge.use','edge.unpaved','edge.max_upward_grade','edge.max_downward_grade','edge.names','edge.begin_shape_index','edge.end_shape_index','shape'];
+  const r=await tfetch(VAL+'/trace_attributes',{method:'POST',body:JSON.stringify({encoded_polyline:shape,shape_match:'edge_walk',costing:'auto',units:'miles',filters:{attributes:attrs,action:'include'}})},30000);
+  const j=await r.json();
+  if(!j.edges) throw new Error(j.error||'Road details unavailable');
+  return {pts:decode(j.shape||shape),edges:j.edges};
+}
+async function osmTags(ids){
+  // Primary: the OpenStreetMap API (fast, one call per 100 ways). Fallback: Overpass mirrors.
+  const out={};const uniq=[...new Set(ids.filter(Boolean))];const batches=[];
+  for(let i=0;i<uniq.length;i+=100) batches.push(uniq.slice(i,i+100));
+  const viaApi=b=>tfetch(OSMAPI+'?ways='+b.join(','),{},15000).then(r=>{if(!r.ok)throw new Error(r.status);return r.json()});
+  const viaOverpass=b=>{const q='[out:json][timeout:25];way(id:'+b.join(',')+');out tags;';
+    return Promise.any(OVERPASS.map(u=>tfetch(u,{method:'POST',body:'data='+encodeURIComponent(q)},25000).then(r=>{if(!r.ok)throw new Error(r.status);return r.json()})))};
+  for(let i=0;i<batches.length;i+=4){
+    const res=await Promise.all(batches.slice(i,i+4).map(b=>viaApi(b).catch(()=>viaOverpass(b))));
+    for(const j of res) for(const e of j.elements||[]) out[e.id]=e.tags||{};
+  }
+  return out;
+}
+async function elevation(shape,miles){
+  const rd=Math.max(80,Math.round(miles*1609/400));
+  const r=await tfetch(VAL+'/height',{method:'POST',body:JSON.stringify({encoded_polyline:shape,range:true,resample_distance:rd})},30000);
+  const j=await r.json();
+  return (j.range_height||[]).filter(p=>p[1]!=null).map(p=>[+(p[0]/1609.34).toFixed(3),Math.round(p[1])]);
+}
+function buildRuns(pts,edges,tags){
+  const runs=[];
+  for(const e of edges){
+    const t=(tags&&tags[e.way_id])||{};
+    const run={c:pts.slice(e.begin_shape_index,e.end_shape_index+1),mi:e.length||0,s:e.surface||'paved',n:(e.names&&e.names[0])||'',rc:e.road_class||'',
+      hw:t.highway||'',st:t.surface||'',tt:t.tracktype||'',sm:t.smoothness||'',fwd:t['4wd_only']==='yes'?1:0,up:e.max_upward_grade||0,dn:e.max_downward_grade||0};
+    const p=runs[runs.length-1];
+    const k=r=>[r.s,r.n,r.rc,r.hw,r.st,r.tt,r.sm,r.fwd].join('|');
+    if(p&&k(p)===k(run)){p.c=p.c.concat(run.c.slice(1));p.mi+=run.mi;p.up=Math.max(p.up,run.up);p.dn=Math.min(p.dn,run.dn)}
+    else runs.push(run);
+  }
+  return runs;
+}
+async function buildRoute(a,b,auto,avoid){
+  const r=await valRoute(a,b,auto,avoid);
+  const tr=await traceEdges(r.shape);
+  const [tags,elev]=await Promise.all([osmTags(tr.edges.map(e=>e.way_id)).catch(()=>null),elevation(r.shape,r.miles).catch(()=>null)]);
+  return {from:a,to:b,miles:r.miles,minutes:r.minutes,runs:buildRuns(tr.pts,tr.edges,tags),elev,tagsOk:!!tags};
+}
+const isUnpaved=r=>roadRisk(r,false,true).lvl>=2;
+const milesBetween=(a,b)=>Math.hypot((a[1]-b[1])*Math.cos(a[0]*Math.PI/180)*69.1,(a[0]-b[0])*69.1);
+function pointAt(c,f){let tot=0;const d=[0];for(let i=1;i<c.length;i++){tot+=milesBetween(c[i-1],c[i]);d.push(tot)}
+  const t=tot*f;for(let i=1;i<c.length;i++)if(d[i]>=t){const k=(t-d[i-1])/((d[i]-d[i-1])||1);return [c[i-1][0]+(c[i][0]-c[i-1][0])*k,c[i-1][1]+(c[i][1]-c[i-1][1])*k]}return c[c.length-1]}
+const unpavedOf=route=>route.runs.filter(isUnpaved).reduce((s,r)=>s+r.mi,0);
+async function pavedAlternate(main){
+  const unpavedMi=unpavedOf(main);
+  if(unpavedMi<0.15) return null;
+  let alt=null;
+  try{alt=await buildRoute(main.from,main.to,{exclude_unpaved:true})}catch(e){alt=null}
+  if(!alt||unpavedOf(alt)>unpavedMi-0.2){
+    // Strict paved routing failed (often the start or end is itself on dirt). Instead, block the
+    // unpaved roads in the middle of the trip with small exclusion boxes and re-route, up to 4 times.
+    alt=null;const S=[main.from.lat,main.from.lon],E=[main.to.lat,main.to.lon],boxes=[];let cur=main;
+    for(let it=0;it<4;it++){
+      let added=0;
+      for(const r of cur.runs){
+        if(!isUnpaved(r)||r.c.length<2) continue;
+        for(const f of (r.mi<0.3?[0.5]:[0.25,0.5,0.75])){
+          const p=pointAt(r.c,f);if(milesBetween(p,S)<0.4||milesBetween(p,E)<0.4) continue;
+          const d=0.0004;boxes.push([[p[1]-d,p[0]-d],[p[1]+d,p[0]-d],[p[1]+d,p[0]+d],[p[1]-d,p[0]+d],[p[1]-d,p[0]-d]]);added++;
+        }
+      }
+      if(!added) break;
+      let next;try{next=await buildRoute(main.from,main.to,{},boxes.slice())}catch(e){break}
+      if(!alt||unpavedOf(next)<unpavedOf(alt)) alt=next;
+      cur=next;if(unpavedOf(next)<0.15) break;
+    }
+  }
+  if(!alt) return null;
+  alt.unpavedMi=unpavedOf(alt);
+  if(alt.unpavedMi>unpavedMi-0.2) return null;
+  return alt;
+}
+
+/* ============ Drivability model ============ */
+const SURF={paved_smooth:0,paved:0,paved_rough:1,compacted:2,gravel:2,dirt:3,path:4,impassable:5};
+const ST={chipseal:1,paving_stones:1,sett:1,cobblestone:2,compacted:2,fine_gravel:2,gravel:2,unpaved:2,pebblestone:3,ground:3,dirt:3,earth:3,sand:4,mud:4,rock:4};
+const TT={grade1:1,grade2:2,grade3:3,grade4:4,grade5:5};
+const SM={excellent:0,good:0,intermediate:1,bad:2,very_bad:3,horrible:4,very_horrible:5,impassable:5};
+const REQ=[0,3.5,4.5,6.5,8.5,11];   // rough clearance (in) wanted per roughness level
+const SURF_TXT={paved_smooth:'Paved',paved:'Paved',paved_rough:'Rough pavement',compacted:'Compacted dirt',gravel:'Gravel',dirt:'Dirt',path:'Trail',impassable:'Impassable'};
+function cap(s){return s.charAt(0).toUpperCase()+s.slice(1)}
+function surfaceText(r){let t=(r.st&&r.st!=='unpaved'&&r.st!=='paved')?cap(r.st.replace(/_/g,' ')):(SURF_TXT[r.s]||'Paved');if(r.tt)t+=' · track '+r.tt.replace('grade','grade ');if(r.sm&&SM[r.sm]>=2)t+=' · '+r.sm.replace(/_/g,' ');return t}
+function roadRisk(r,rain,tagsOk){
+  let lvl=SURF[r.s]??0;const why=[];
+  if(r.st&&ST[r.st]!=null&&ST[r.st]>lvl) lvl=ST[r.st];
+  if(r.tt&&TT[r.tt]>lvl) lvl=TT[r.tt];
+  if(r.sm&&SM[r.sm]>lvl) lvl=SM[r.sm];
+  if(r.hw==='track'&&r.tt!=='grade1'&&lvl<3) lvl=3;
+  if(r.fwd) {lvl=5;why.push('fwd')}
+  let unverified=false;
+  if(tagsOk&&!r.st&&lvl<2&&(r.hw==='track'||r.hw==='unclassified'||r.hw==='service'||r.rc==='service_other')){unverified=true;lvl=Math.max(lvl,1)}
+  if(rain&&lvl>=2){lvl=Math.min(5,lvl+1);why.push('rain')}
+  return {lvl,why,unverified};
+}
+// Sustained grade (%) per run, from the elevation profile (centered difference over ~2 samples).
+function runGrades(runs,elev){
+  if(!elev||elev.length<5) return runs.map(()=>0);
+  const g=[];for(let i=1;i<elev.length-1;i++){const dd=(elev[i+1][0]-elev[i-1][0])*1609.34;if(dd>40)g.push([elev[i][0],Math.abs(elev[i+1][1]-elev[i-1][1])/dd*100])}
+  let a=0;return runs.map(r=>{const b=a+r.mi;let m=0;for(const p of g)if(p[0]>=a&&p[0]<=b&&p[1]>m)m=p[1];a=b;return Math.round(m)});
+}
+function judge(r,car,tagsOk){
+  const rr=roadRisk(r,car.rain,tagsOk);
+  const hasLift=car.lift&&car.lift>car.clr&&car.useLift;
+  const c=hasLift?car.lift:car.clr;
+  const need=REQ[rr.lvl];
+  const col=x=>rr.lvl===0?'go':(x>=need+1.5&&(rr.lvl<2||x>=7))?'go':(x>=need-0.5)?'caution':'stop';
+  let color=col(c);
+  const g=r.g||0;
+  const steep=g>=10;
+  if(steep&&color==='go'&&car.clr<5) color='caution';
+  const liftHelps=hasLift&&col(car.clr)!==color&&rr.lvl>0;
+  return {color,lvl:rr.lvl,need,c,unverified:rr.unverified,rain:rr.why.includes('rain'),fwd:rr.why.includes('fwd'),g,steep,liftHelps};
+}
+function analyze(route,car){
+  const gr=runGrades(route.runs,route.elev);
+  let mi=0;const runs=route.runs.map((r0,k)=>{const r=Object.assign({},r0,{g:gr[k]});const j=judge(r,car,route.tagsOk);const o=Object.assign({},r,{j,a:mi,b:mi+r.mi});mi+=r.mi;return o});
+  const segs=[];
+  for(const r of runs){
+    const p=segs[segs.length-1];
+    const key=r.j.color+'|'+r.n+'|'+surfaceText(r);
+    if(p&&p.key===key){p.runs.push(r);p.b=r.b;p.mi+=r.mi;p.lvl=Math.max(p.lvl,r.j.lvl);p.g=Math.max(p.g,r.j.g);p.need=Math.max(p.need,r.j.need);p.steep=p.steep||r.j.steep;p.unverified=p.unverified||r.j.unverified;p.liftHelps=p.liftHelps||r.j.liftHelps;p.fwd=p.fwd||r.j.fwd}
+    else segs.push({key,color:r.j.color,n:r.n,surf:surfaceText(r),runs:[r],a:r.a,b:r.b,mi:r.mi,lvl:r.j.lvl,g:r.j.g,need:r.j.need,steep:r.j.steep,unverified:r.j.unverified,liftHelps:r.j.liftHelps,rain:r.j.rain,fwd:r.j.fwd,c:r.j.c});
+  }
+  const tot={go:0,caution:0,stop:0};runs.forEach(r=>tot[r.j.color]+=r.mi);
+  const unpaved=runs.filter(r=>roadRisk(r,false,false).lvl>=2);
+  const unpavedMi=unpaved.reduce((s,r)=>s+r.mi,0);
+  const firstRough=runs.find(r=>r.j.lvl>=2&&r.mi>=0.1);
+  let lastPaved=null;
+  if(firstRough){const idx=runs.indexOf(firstRough);lastPaved=idx>0?runs[idx-1].c[runs[idx-1].c.length-1]:null}
+  const verdict=tot.stop>0.05?'stop':tot.caution>0.05?'caution':'go';
+  return {runs,segs,tot,miles:mi,unpavedMi,firstRough,lastPaved,verdict};
+}
+
+/* ============ Cars (approximate published ride heights) ============ */
+// [make, model, generation and years, stock clearance in, nose-lift clearance in]. Approximate
+// published ride heights at the lowest point; owners should measure their own car.
+const CAR_ROWS=[["Acura","NSX","NA1/NA2 · 1991–2005",4.7],["Acura","NSX","NC1 · 2017–2022",4.6],["Acura","Integra Type S","2024–present",5.3],["Acura","RSX Type-S","2002–2006",5.2],["Alfa Romeo","4C","2015–2020",4.6],["Alfa Romeo","Giulia Quadrifoglio","2017–present",5.0],["Alfa Romeo","8C Competizione","2008–2010",4.3],["Aston Martin","V8 / V12 Vantage","2006–2017",4.1],["Aston Martin","Vantage","2018–present",4.4],["Aston Martin","DB9","2004–2016",4.3],["Aston Martin","DB11","2017–2023",4.6],["Aston Martin","DB12","2024–present",4.6],["Aston Martin","DBS Superleggera","2019–2023",4.4],["Audi","R8","Gen 1 · 2008–2015",4.3],["Audi","R8","Gen 2 · 2017–2024",4.3],["Audi","TT RS","8J · 2012–2013",4.5],["Audi","TT RS","8S · 2018–2023",4.6],["Audi","RS3","8V · 2017–2020",5.0],["Audi","RS3","8Y · 2022–present",5.0],["Audi","S4 / S5","B9 · 2018–present",5.0],["Audi","RS5","B8 · 2013–2015",4.7],["Audi","RS5","B9 · 2018–present",4.6],["Audi","RS6 / RS7","C8 · 2020–present (air ride)",4.4,5.6],["Audi","RS e-tron GT","2022–present (air ride)",4.4,5.2],["Bentley","Continental GT","2004–2018",5.0],["Bentley","Continental GT","2019–present",5.3],["BMW","1M","E82 · 2011–2012",4.7],["BMW","M235i / M240i","F22 · 2014–2021",5.1],["BMW","M240i","G42 · 2022–present",5.2],["BMW","M2","F87 · 2016–2021",4.7],["BMW","M2","G87 · 2023–present",4.7],["BMW","340i","F30 · 2016–2019",5.5],["BMW","M340i","G20 · 2020–present",5.3],["BMW","440i","F32/F33 · 2017–2020",5.3],["BMW","M440i","G22/G23 Coupe and Convertible · 2021–present",5.1],["BMW","M440i Gran Coupe","G26 · 2022–present",5.3],["BMW","M3","E30 · 1988–1991",5.0],["BMW","M3","E36 · 1995–1999",4.8],["BMW","M3","E46 · 2001–2006",4.7],["BMW","M3","E90/E92 · 2008–2013",4.6],["BMW","M3","F80 · 2015–2018",4.7],["BMW","M3","G80 · 2021–present",4.7],["BMW","M4","F82/F83 · 2015–2020",4.7],["BMW","M4","G82/G83 · 2021–present",4.7],["BMW","M5","E39 · 2000–2003",4.9],["BMW","M5","E60 · 2006–2010",4.8],["BMW","M5","F10 · 2013–2016",4.6],["BMW","M5","F90 · 2018–2024",4.6],["BMW","M5","G90 · 2025–present",4.7],["BMW","M6","F12/F13 · 2012–2018",4.6],["BMW","M8","F91/F92 · 2020–present",4.6],["BMW","Z4 M","E85/E86 · 2006–2008",4.6],["BMW","Z4 M40i","G29 · 2019–present",5.0],["BMW","i8","2014–2020",4.6],["Bugatti","Veyron","2005–2015",4.9],["Bugatti","Chiron","2017–2023",4.5,5.5],["Cadillac","ATS-V","2016–2019",4.7],["Cadillac","CTS-V","Gen 2 · 2009–2015",4.8],["Cadillac","CTS-V","Gen 3 · 2016–2019",4.6],["Cadillac","CT4-V Blackwing","2022–present",4.6],["Cadillac","CT5-V Blackwing","2022–present",4.5],["Chevrolet","Camaro SS","5th gen · 2010–2015",4.8],["Chevrolet","Camaro SS","6th gen · 2016–2024",4.6],["Chevrolet","Camaro ZL1","6th gen · 2017–2024",4.3],["Chevrolet","Corvette","C5 · 1997–2004",4.5],["Chevrolet","Corvette","C6 · 2005–2013",4.3],["Chevrolet","Corvette Z06 / ZR1","C6 · 2006–2013",4.1],["Chevrolet","Corvette Stingray","C7 · 2014–2019",4.0,6.0],["Chevrolet","Corvette Z06 / ZR1","C7 · 2015–2019",3.7,5.7],["Chevrolet","Corvette Stingray","C8 · 2020–present",3.6,5.6],["Chevrolet","Corvette Z06 / ZR1","C8 · 2023–present",3.6,5.6],["Chevrolet","Corvette E-Ray","C8 · 2024–present",3.9,5.9],["Dodge","Viper","Gen 3/4 · 2003–2010",4.5],["Dodge","Viper","Gen 5 · 2013–2017",4.0],["Dodge","Challenger SRT / Hellcat","2015–2023",4.8],["Dodge","Charger SRT / Hellcat","2015–2023",4.8],["Dodge","Charger Daytona","2024–present",5.0],["Ferrari","360 Modena","1999–2005",4.7],["Ferrari","F430","2005–2009",4.7,5.7],["Ferrari","599 GTB","2007–2012",4.7],["Ferrari","California / California T","2009–2017",4.6],["Ferrari","458 Italia / Speciale","2010–2015",4.3,5.5],["Ferrari","F12berlinetta","2013–2017",4.3,5.5],["Ferrari","488 GTB / Pista","2016–2020",4.3,5.4],["Ferrari","Portofino / Portofino M","2018–2023",4.6,5.6],["Ferrari","812 Superfast","2018–2023",4.5,5.6],["Ferrari","F8 Tributo","2020–2023",4.3,5.4],["Ferrari","Roma","2020–present",4.7,5.6],["Ferrari","SF90 Stradale","2020–present",4.1,5.3],["Ferrari","296 GTB / GTS","2022–present",4.3,5.4],["Ferrari","12Cilindri","2025–present",4.6,5.7],["Ferrari","LaFerrari","2013–2016",3.9,5.0],["Ford","Mustang GT","S197 · 2005–2014",5.2],["Ford","Mustang GT","S550 · 2015–2023",5.1],["Ford","Mustang GT / Dark Horse","S650 · 2024–present",5.0],["Ford","Shelby GT350","2015–2020",4.6],["Ford","Shelby GT500","2020–2022",4.6],["Ford","Focus RS","2016–2018",4.9],["Ford","GT","2005–2006",4.7],["Ford","GT","2017–2022",4.7,5.9],["Genesis","G70 3.3T","2019–present",5.3],["Honda","S2000","2000–2009",5.1],["Honda","Civic Type R","FK8 · 2017–2021",5.0],["Honda","Civic Type R","FL5 · 2023–present",5.0],["Hyundai","Genesis Coupe","2010–2016",5.1],["Hyundai","Veloster N","2019–2022",5.0],["Hyundai","Elantra N","2022–present",5.3],["Infiniti","Q60 Red Sport 400","2017–2022",5.1],["Jaguar","XKR","2010–2015",5.0],["Jaguar","F-Type","2014–2024",4.5],["Kia","Stinger GT","2018–2023",5.3],["Lamborghini","Murciélago","2002–2010",4.9,6.0],["Lamborghini","Gallardo","2004–2014",4.5,5.7],["Lamborghini","Aventador","2012–2022",4.9,6.3],["Lamborghini","Huracán LP610 / EVO","2015–2024",4.5,6.0],["Lamborghini","Huracán Performante / STO / Tecnica","2018–2024",4.3,5.8],["Lamborghini","Huracán Sterrato","2023–2024",6.8],["Lamborghini","Revuelto","2024–present",4.4,5.9],["Lamborghini","Temerario","2025–present",4.5,6.0],["Lexus","LFA","2011–2012",4.3],["Lexus","RC F","2015–present",4.8],["Lexus","LC 500","2018–present",5.1],["Lexus","IS 500 F Sport Performance","2022–present",5.0],["Lotus","Elise","S2 · 2005–2011",5.1],["Lotus","Exige","S2/S3 · 2006–2021",4.9],["Lotus","Evora","2010–2021",5.1],["Lotus","Emira","2023–present",5.0],["Maserati","GranTurismo","2008–2019",4.9],["Maserati","GranTurismo","2024–present",5.0],["Maserati","MC20","2021–present",4.7,6.0],["Mazda","MX-5 Miata","NA/NB · 1990–2005",4.5],["Mazda","MX-5 Miata","NC · 2006–2015",4.6],["Mazda","MX-5 Miata","ND · 2016–present",5.3],["Mazda","RX-7","FD · 1993–2002",4.9],["Mazda","RX-8","2004–2011",5.3],["McLaren","MP4-12C / 650S","2011–2017",4.7,5.3],["McLaren","570S / 570GT / 600LT","2016–2021",4.7,5.3],["McLaren","720S / 750S","2017–present",4.3,5.8],["McLaren","765LT","2021–2022",4.3,5.7],["McLaren","Artura","2022–present",4.3,5.4],["McLaren","P1","2014–2015",3.9,5.0],["Mercedes-AMG","C63","W204 · 2008–2015",4.5],["Mercedes-AMG","C63","W205 · 2015–2021",4.4],["Mercedes-AMG","C63 S E Performance","W206 · 2024–present",4.7],["Mercedes-AMG","C43","W205/W206 · 2017–present",4.8],["Mercedes-AMG","CLA 45","2014–present",4.7],["Mercedes-AMG","E63","W212 · 2010–2016",4.6],["Mercedes-AMG","E63","W213 · 2018–2023",4.6],["Mercedes-AMG","SLS AMG","2011–2015",4.3],["Mercedes-AMG","AMG GT / GT S / GT R","C190 · 2016–2021",4.3],["Mercedes-AMG","AMG GT 63 / 55","C192 · 2024–present",4.6,5.6],["Mercedes-AMG","SL 63","R231 · 2013–2020",4.6],["Mercedes-AMG","SL 55 / 63","R232 · 2022–present",5.0],["Mitsubishi","Lancer Evolution VIII / IX","2003–2006",5.5],["Mitsubishi","Lancer Evolution X","2008–2015",5.5],["Mitsubishi","3000GT VR-4","1991–1999",5.3],["Nissan","350Z","2003–2009",5.0],["Nissan","370Z","2009–2020",4.9],["Nissan","Z","2023–present",5.0],["Nissan","GT-R","R35 · 2009–present",4.1],["Porsche","911 Carrera","996 · 1999–2004",4.7],["Porsche","911 Carrera","997 · 2005–2012",4.5],["Porsche","911 Carrera / Turbo","991 · 2012–2019",4.3,5.9],["Porsche","911 Carrera / Turbo","992 · 2020–present",4.3,5.9],["Porsche","911 GT3 / GT3 RS","991 · 2014–2019",4.0,5.6],["Porsche","911 GT3 / GT3 RS","992 · 2022–present",4.0,5.6],["Porsche","911 Dakar","992 · 2023–2024",7.5,8.7],["Porsche","Boxster / Cayman","986/987 · 1997–2012",4.9],["Porsche","Boxster / Cayman","981 · 2013–2016",4.5],["Porsche","718 Boxster / Cayman","982 · 2017–2025",4.5],["Porsche","Cayman GT4 / GT4 RS","981/982 · 2016–2025",4.3],["Porsche","Carrera GT","2004–2006",3.9],["Porsche","918 Spyder","2014–2015",4.4],["Porsche","Taycan","2020–present (air ride)",5.0,5.8],["Subaru","BRZ","2013–2020",5.0],["Subaru","BRZ","2022–present",5.1],["Subaru","WRX STI","2004–2021",5.5],["Subaru","WRX","2022–present",5.5],["Tesla","Model 3 Performance","2018–present",5.4],["Tesla","Model S Plaid","2021–present (air ride)",4.6,6.0],["Toyota","Supra","A80 · 1993–2002",4.9],["Toyota","GR Supra","A90 · 2020–present",4.6],["Toyota","MR2 Spyder","2000–2005",4.8],["Toyota","86 / Scion FR-S","2013–2021",5.0],["Toyota","GR86","2022–present",5.1],["Toyota","GR Corolla","2023–present",5.2],["Volkswagen","Golf GTI","Mk7 / Mk8 · 2015–present",5.3],["Volkswagen","Golf R","Mk7 / Mk8 · 2015–present",5.2]];
+const CARS=CAR_ROWS.map(r=>({make:r[0],model:r[1],gen:r[2],clr:r[3],lift:r[4]||null}));
+CARS.push({make:'Other',model:'My own car',gen:'Enter your own numbers',clr:4.5,lift:null,custom:true});
+CARS.forEach(c=>c.n=c.custom?'Custom car':c.make+' '+c.model);
+
+/* ============ Saved demo routes (generated with the same pipeline) ============ */
+const DEMO = [{"title":"Airbnb in Terlingua Ranch","blurb":"Study Butte to an off-grid cabin down dirt roads","main":{"from":{"lat":29.32755,"lon":-103.53476,"label":"Study Butte, TX"},"to":{"lat":29.55,"lon":-103.36,"label":"Off-grid cabin, Terlingua Ranch"},"miles":28.45,"minutes":69,"tagsOk":true,"elev":[[0,790],[0.42,799],[0.85,826],[1.27,832],[1.7,840],[2.12,835],[2.55,842],[2.97,850],[3.4,858],[3.82,871],[4.25,894],[4.67,915],[5.1,926],[5.52,930],[5.95,940],[6.37,953],[6.8,966],[7.22,979],[7.65,990],[8.07,1017],[8.49,1024],[8.92,1076],[9.35,1090],[9.77,1028],[10.19,1023],[10.62,1010],[11.04,1012],[11.47,1022],[11.89,1032],[12.32,1038],[12.74,1049],[13.17,1060],[13.59,1060],[14.02,1059],[14.44,1057],[14.87,1051],[15.29,1050],[15.72,1044],[16.14,1053],[16.55,1051],[16.97,1046],[17.4,1037],[17.82,1025],[18.25,1030],[18.67,1035],[19.1,1030],[19.52,1028],[19.95,1029],[20.37,1035],[20.8,1039],[21.22,1042],[21.65,1042],[22.07,1036],[22.5,1033],[22.92,1032],[23.34,1043],[23.77,1053],[24.19,1041],[24.61,1039],[25.03,1025],[25.45,1013],[25.88,1004],[26.29,999],[26.71,989],[27.13,978],[27.55,965],[27.98,957],[28.38,950]],"runs":[{"c":"e`_rDfs|vR}J]","mi":0.131,"s":"paved_smooth","n":"South State Highway 118","rc":"secondary","hw":"secondary"},{"c":"cl_rDhr|vRgd@wJce@wEsUkIgn@uImJ?_Ek@ioA}]md@iVccAaPk]lBoE]g]sIoe@{[","mi":5.293,"s":"paved_smooth","n":"South State Highway 118","rc":"primary","hw":"primary"},{"c":"irmrD`}wvRkL}HkF}Aql@}CcDBwZ|D{DUyKqCo!{@sY~AcDq@cVeLiDk@uCHmTlDeGvB}_@h[_FpCa^~K{_@nEqQ~IwUpEqZbS_ClDyK|Z{HdIkDpAcuA`MuJfDyNhKsI`C{oCz[{lBlWazAzMcMzB","mi":10.968,"s":"paved_smooth","n":"South State Highway 118","rc":"primary","hw":"primary","st":"asphalt"},{"c":"eujsDnz~vRLaKvJwu@xBuYnBc~@nFecA|H}bAxGcj@DmTjNg`CgAaNlCoe@rAeu@QmNwBoMYkOhFmXzFkPnEqGlAuFjBuCjN{LpOw[","mi":7.478,"s":"paved_smooth","n":"Terlingua Ranch Road","rc":"residential","hw":"residential"},{"c":"w|fsDnogvRjCeJvAaToAsPpBmMtBsFgA_OD{N","mi":1.031,"s":"gravel","n":"Terlingua Ranch Road","rc":"residential","hw":"residential","st":"unpaved"},{"c":"}rfsDtgdvRiE}IyEuEeCsIn@kPqCuKRoJ{@eGGoHxCuSeD}PcDcDcGW{AeC_C}@m@iB}E{D{@qEgEuHeDyKkLoMiKe]}GeIiLwa@qWqb@","mi":3.506,"s":"gravel","n":"East Cedar Springs Road","rc":"residential","hw":"residential","st":"unpaved"}]},"alt":null},{"title":"Santa Elena Canyon","blurb":"Terlingua Ranch Lodge to the canyon. The fastest way is Old Maverick Rd.","main":{"from":{"lat":29.45213,"lon":-103.39382,"label":"Terlingua Ranch Lodge"},"to":{"lat":29.16762,"lon":-103.60999,"label":"Santa Elena Canyon Trailhead"},"miles":37.06,"minutes":100,"tagsOk":true,"elev":[[0,1125],[0.55,1099],[1.08,1091],[1.64,1108],[2.18,1119],[2.71,1128],[3.26,1150],[3.78,1152],[4.33,1171],[4.88,1185],[5.38,1206],[5.9,1232],[6.44,1230],[6.98,1256],[7.5,1265],[8.03,1163],[8.57,1122],[9.11,1085],[9.65,1096],[10.12,1083],[10.62,1035],[11.14,1028],[11.69,995],[12.24,979],[12.8,961],[13.36,943],[13.91,928],[14.46,923],[15.02,905],[15.57,872],[16.13,853],[16.68,846],[17.24,834],[17.8,839],[18.35,838],[18.91,800],[19.46,789],[20.02,780],[20.57,770],[21.13,776],[21.68,786],[22.23,780],[22.78,805],[23.3,837],[23.86,829],[24.41,822],[24.97,813],[25.52,804],[26.08,796],[26.63,787],[27.19,754],[27.74,741],[28.29,731],[28.84,722],[29.38,719],[29.94,713],[30.49,707],[31.04,715],[31.6,724],[32.15,712],[32.71,706],[33.26,700],[33.81,695],[34.37,691],[34.92,688],[35.46,679],[35.99,661],[36.38,659]],"runs":[{"c":"yiwrDlaavRs@iAwBy@oHGgY{IyOeHwI{H","mi":0.845,"s":"paved_smooth","n":"Terlingua Ranch Road","rc":"residential","hw":"residential"},{"c":"onyrDb_`vRaA~@eBvGaDvCu@|BUrg@{JnUc@hFcL~H}LvOaA|CO`Jj@fBvDlBTxCeDhG?dHm@rDcDpFiAnGmA`BJpP{HhMmCpCzAvH?vDiAxAoE~@_B|C]|HeBbF[rIuB|F_BjQsBzEuEtDFlGwEhO?jWoCrLo@|JcApB|Nw@`EJzFq@zGnEtGt@d@~KvGhLpIXhA`PfE`GpAnJ~@rBdGbHjJPdD~C`BCnCbBtP{@tOhEjBMfAaEn@OdBdAfF@nFvAtGxDEbBx@fD{BpEk@vEHbBtB`EMrJgCxCwC|KoCfTt@~Dk@bBeCfBcBfKgAnBg@fPh@bKhDfFxAfLsBlFVzG","mi":8.911,"s":"paved_smooth","n":"Lake Ament Road","rc":"residential","hw":"residential"},{"c":"_fxrDjztvR}ApSBdHjFtFpHiBxDf@nHxIZ]]eDV_@t@^bApG`CbBxBtEhDpCnCvE|OzNZtAUbE~@|C","mi":1.596,"s":"gravel","n":"Gate 9","rc":"residential","hw":"residential","st":"unpaved"},{"c":"g_vrDv}wvRr!wWf]_GpFv@jUzKbDp@rY_Bn!z@xKpCzDTvZ}DbDCpl@|CjF|AjL|H","mi":3.145,"s":"paved_smooth","n":"South State Highway 118","rc":"primary","hw":"primary","st":"asphalt"},{"c":"irmrD`}wvRne@z[f]rInE!j]mBbcA`Pld@hVhoA|]~Dj@lJ?fn@tIrUjIbe@vEfd@vJ","mi":5.293,"s":"paved_smooth","n":"South State Highway 118","rc":"primary","hw":"primary"},{"c":"cl_rDhr|vRpL!","mi":0.148,"s":"paved_smooth","n":"South State Highway 118","rc":"secondary","hw":"secondary"},{"c":"q~~qDfs|vRvZVpCm@|CqBzMaThOmK","mi":0.901,"s":"paved_smooth","n":"South State Highway 118","rc":"secondary","hw":"secondary","st":"asphalt"},{"c":"cz|qDnm{vRjBkA","mi":0.044,"s":"paved_smooth","n":"South State Highway 118","rc":"secondary","hw":"secondary"},{"c":"wv|qDbk{vRjOoJna@cQ","mi":0.631,"s":"paved_smooth","n":"South State Highway 118","rc":"secondary","hw":"secondary","st":"asphalt"},{"c":"{c{qDnmzvRrFcFlC{H^yGUo[~@kGxVu`@","mi":1.081,"s":"paved_smooth","n":"South State Highway 118","rc":"secondary","hw":"secondary","st":"paved"},{"c":"u}yqDbmwvRjPsVpCeCzDoAdOsA|CoCp@}CaBiLNcM","mi":1.006,"s":"paved_smooth","n":"Maverick Drive","rc":"secondary","hw":"secondary","st":"paved"},{"c":"wmxqDhguvRIsK","mi":0.119,"s":"paved_smooth","n":"Maverick Drive","rc":"tertiary","hw":"tertiary","st":"paved"},{"c":"anxqDtztvRtAD`BhC`c@hv@l_Ab|@v_AhsAdQ`MvUdFjOrBvRc@lDr@hG?pEvAvPuGnPC`^{EdVa@`FuAzTfE`SvB`LwChHSfDmAzABrB|BdTbAtEvCpi@jm@lDzE~ClJP`DiFdUQzFwH|HqCjOzEjrAhEfLtn@`z@rIjMdL|Sn_@jLzsA`e@pFzGzBdGpDj[FvTdIdFvDxE~EbCbBMnDaDvJ`@","mi":12.551,"s":"gravel","n":"Old Maverick Road","rc":"unclassified","hw":"unclassified","st":"unpaved"},{"c":"es`qDd_jwR~DtA","mi":0.073,"s":"paved_smooth","n":"Old Maverick Road","rc":"unclassified","hw":"unclassified","st":"paved"},{"c":"em`qDzajwRAvBiCxGdBtTbBlCtAr@hLh@","mi":0.587,"s":"paved_smooth","n":"Ross Maxwell Scenic Drive","rc":"tertiary","hw":"tertiary","st":"paved"},{"c":"g{_qDnkkwRvB`@NcAq@U","mi":0.086,"s":"paved_smooth","rc":"service_other","hw":"service","st":"paved"}]},"alt":{"from":{"lat":29.45213,"lon":-103.39382,"label":"Terlingua Ranch Lodge"},"to":{"lat":29.16762,"lon":-103.60999,"label":"Santa Elena Canyon Trailhead"},"miles":62.81,"minutes":149,"tagsOk":true,"unpavedMi":4.5,"elev":[[0,1125],[0.88,1090],[1.8,1121],[2.7,1131],[3.57,1150],[4.48,1177],[5.33,1208],[6.18,1238],[7.07,1280],[7.95,1153],[8.74,1102],[9.56,1178],[10.42,1098],[11.34,1021],[12.26,972],[13.16,941],[14.1,922],[15.04,885],[15.98,850],[16.93,835],[17.87,831],[18.81,794],[19.75,775],[20.69,776],[21.63,775],[22.55,830],[23.49,852],[24.42,868],[25.37,886],[26.31,909],[27.25,935],[28.2,968],[29.13,1019],[30.07,1000],[30.96,1003],[31.9,1041],[32.84,1062],[33.78,1104],[34.72,1122],[35.65,1162],[36.59,1186],[37.53,1211],[38.45,1285],[39.36,1260],[40.17,1182],[41.11,1078],[42.05,989],[42.98,975],[43.91,953],[44.85,889],[45.79,859],[46.72,820],[47.63,794],[48.54,771],[49.47,764],[50.41,719],[51.3,693],[52.23,674],[53.11,653],[54.05,652],[54.96,666],[55.87,666],[56.8,659],[57.71,659],[58.62,658],[59.55,662],[60.46,665],[60.95,659]],"runs":[{"c":"yiwrDlaavRs@iAwBy@oHGgY{IyOeHwI{H","mi":0.845,"s":"paved_smooth","n":"Terlingua Ranch Road","rc":"residential","hw":"residential"},{"c":"onyrDb_`vRaA~@eBvGaDvCu@|BUrg@{JnUc@hFcL~H}LvOaA|CO`Jj@fBvDlBTxCeDhG?dHm@rDcDpFiAnGmA`BJpP{HhMmCpCzAvH?vDiAxAoE~@_B|C]|HeBbF[rIuB|F_BjQsBzEuEtDFlGwEhO?jWoCrLo@|JcApB|Nw@`EJzFq@zGnEtGt@d@~KvGhLpIXhA`PfE`GpAnJ~@rBdGbHjJPdD~C`BCnCbBtP{@tOhEjBMfAaEn@OdBdAfF@nFvAlGnD|@dG}B`Fk@vEHbBtB`EMrJgCxCsBnHiDpTIbBt@~Dk@bBeCfBiDfPxBeBvDYKeH","mi":8.451,"s":"paved_smooth","n":"Lake Ament Road","rc":"residential","hw":"residential"},{"c":"abxrDnlrvRlCqBjCt@rAwFbCyBxBMjCoEtBIv@z@p@C`AkLxA?xD_BdAp@fE_FhCeHfB`@lDu@~DpChPgAfKClGp@zD~BjAOjCzApEy@","mi":1.783,"s":"gravel","n":"Canyon Road","rc":"residential","hw":"residential","st":"unpaved"},{"c":"_dtrDfbqvROnLhBzDfPxT","mi":0.483,"s":"gravel","n":"Snake Mouse Alley","rc":"residential","hw":"residential","st":"unpaved"},{"c":"}osrDlkrvRj@bDpFlHhC~HbEnF|BvAfKvBzStLjCzCf@|BxDpCbEhMF|GvCtHjF`DtDRbAn@pG~IpDlBt@pFpB|AxAJLhFfDpMf@zE","mi":2.231,"s":"gravel","n":"Terlingua Ranch Gate 4 Road","rc":"residential","hw":"residential","st":"unpaved"},{"c":"storDfkwvRpl@|CjF|AjL|H","mi":0.769,"s":"paved_smooth","n":"South State Highway 118","rc":"primary","hw":"primary","st":"asphalt"},{"c":"irmrD`}wvRne@z[f]rInE!j]mBbcA`Pld@hVhoA|]~Dj@lJ?fn@tIrUjIbe@vEfd@vJ","mi":5.293,"s":"paved_smooth","n":"South State Highway 118","rc":"primary","hw":"primary"},{"c":"cl_rDhr|vRpL!","mi":0.148,"s":"paved_smooth","n":"South State Highway 118","rc":"secondary","hw":"secondary"},{"c":"q~~qDfs|vRvZVpCm@|CqBzMaThOmK","mi":0.901,"s":"paved_smooth","n":"South State Highway 118","rc":"secondary","hw":"secondary","st":"asphalt"},{"c":"cz|qDnm{vRjBkA","mi":0.044,"s":"paved_smooth","n":"South State Highway 118","rc":"secondary","hw":"secondary"},{"c":"wv|qDbk{vRjOoJna@cQ","mi":0.631,"s":"paved_smooth","n":"South State Highway 118","rc":"secondary","hw":"secondary","st":"asphalt"},{"c":"{c{qDnmzvRrFcFlC{H^yGUo[~@kGxVu`@","mi":1.081,"s":"paved_smooth","n":"South State Highway 118","rc":"secondary","hw":"secondary","st":"paved"},{"c":"u}yqDbmwvRjPsVpCeCzDoAdOsA|CoCp@}CaBiLNcM","mi":1.006,"s":"paved_smooth","n":"Maverick Drive","rc":"secondary","hw":"secondary","st":"paved"},{"c":"wmxqDhguvRHsG_BwIoKeVaIgImEgJoGsH{BkO_CmFyCoCw^sOuK}GgNuN}J}Q}HoVmKwc@sGsa@_I}q@cG}]yGyXeX}|@{Jke@iEy!^}J`B{HrBqEfEcFhJqEdIkHdKcFlI_IxAsEN{On@iEhBiDpFeGtBuGhAy!QuDqAoCoGiF}AiCeD_Z}HcP","mi":8.182,"s":"paved_smooth","n":"Maverick Drive","rc":"tertiary","hw":"tertiary","st":"paved"},{"c":"o}}qDb`_vRxC_ChCUfKhExPdDrFt@tF_@xD_BtCqCtO}^fC}CfEmCxHuAd_@bBxNkA|IkDzSsMrGmB`VwDzS}MnOoDpLZbQvCtWeCtPlAxQ_@|Db@rNxElRkDdGBrF~AxR`NlCdApEb@|OkBzHb@~LxDvTnEjEbBdEv@rLFzM|BlIj@lPvGzHz@fVWzDi@fEgBtPwNv@yKdL_NrCcF`CqAnBR|LpLf@jFwDpV_DdMItSyAjOkEzLqBb@kAsAj@aJSsGu@gAgBb@iBfIgDpZWjOgBlOfB`YyEp]JlK|E`UpBb!xAtEhWxVjE^bMiBbEf@dChAnOpVtF~DzFjBtFh@jEGxVgEjFIdInAhMrGpE`@zDu@zI}FnFyAjT|@`KpCzEvDhCrDzHtWzGdKtNlJ|L|P~KrH`ItKlFbEdF`GrJfFlJtJvK`Ex@rC{@dLfBdEjL`FdJMzDd@tH~E|A`FBtKf@vDvBfC~JvD~@bBHnD}AbFsFtIOrIs@rByE`FiFlKcCzAqHtBkB~AsBdE_@fHzDrOfDbIxOrPxLfHlBpB~C|OpOfOlF~M`I|KRfEm@zG_BlFeEdFeALeF}@oAtAqDpVBdFt@jEjEnGzLtEfGnDrO`RfBxFVrN`A~ChCzCdDxAdJd@pGhD|JuAlBN|EbDtB`DJhAQfAaFjGkNlO{AhGUpKkEtLsClDeO~JiDhGcAzFk@lMItUeB`GuBfBgKnDiAhBoArHuIfCkFdH{C|@sJSgBt@uA`En@jLo@fEyBtBuJzBoFzRmBfBcH`D{B~Ce@rRkGjPmEpV[pD!bHxAxEjDhEvLfEbCzBxAtEf@`KnAxBpL~BpIdFh@rCMxI`EjQ}BnUjGnL`BbTwBjHyK|KsG~TsH`LiGhAwFbC}Gj@{L~CoNVyNbDyFkAcBr@OnHiCxGdBtTbBlCtAr@hLh@","mi":30.81,"s":"paved_smooth","n":"Ross Maxwell Scenic Drive","rc":"tertiary","hw":"tertiary","st":"paved"},{"c":"g{_qDnkkwRvB`@NcAq@U","mi":0.086,"s":"paved_smooth","rc":"service_other","hw":"service","st":"paved"}]}},{"title":"Chisos Basin","blurb":"Study Butte up to the Chisos Mountains Lodge. Paved, with steep grades.","main":{"from":{"lat":29.32755,"lon":-103.53476,"label":"Study Butte, TX"},"to":{"lat":29.27056,"lon":-103.29932,"label":"Chisos Mountains Lodge"},"miles":27.81,"minutes":54,"tagsOk":true,"elev":[[0,790],[0.42,780],[0.83,773],[1.25,771],[1.67,775],[2.08,777],[2.5,776],[2.92,783],[3.33,800],[3.75,840],[4.17,843],[4.58,853],[5,855],[5.42,868],[5.83,872],[6.25,882],[6.67,894],[7.09,901],[7.5,916],[7.92,922],[8.34,940],[8.76,948],[9.17,966],[9.59,987],[10.01,1016],[10.42,1004],[10.84,1012],[11.26,1003],[11.67,1000],[12.09,988],[12.51,991],[12.92,1009],[13.34,996],[13.75,1006],[14.17,1016],[14.59,1033],[15,1052],[15.42,1065],[15.84,1087],[16.25,1147],[16.67,1147],[17.09,1140],[17.5,1135],[17.92,1127],[18.34,1116],[18.76,1111],[19.17,1119],[19.59,1135],[20.01,1161],[20.42,1185],[20.84,1194],[21.25,1221],[21.66,1246],[22.08,1275],[22.5,1305],[22.91,1342],[23.33,1381],[23.75,1432],[24.16,1481],[24.58,1518],[25,1560],[25.41,1611],[25.82,1669],[26.2,1736],[26.6,1721],[26.93,1657],[27.34,1625],[27.57,1655]],"runs":[{"c":"e`_rDfs|vRr@?","mi":0.017,"s":"paved_smooth","n":"South State Highway 118","rc":"secondary","hw":"secondary"},{"c":"q~~qDfs|vRvZVpCm@|CqBzMaThOmK","mi":0.901,"s":"paved_smooth","n":"South State Highway 118","rc":"secondary","hw":"secondary","st":"asphalt"},{"c":"cz|qDnm{vRjBkA","mi":0.044,"s":"paved_smooth","n":"South State Highway 118","rc":"secondary","hw":"secondary"},{"c":"wv|qDbk{vRjOoJna@cQ","mi":0.631,"s":"paved_smooth","n":"South State Highway 118","rc":"secondary","hw":"secondary","st":"asphalt"},{"c":"{c{qDnmzvRrFcFlC{H^yGUo[~@kGxVu`@","mi":1.081,"s":"paved_smooth","n":"South State Highway 118","rc":"secondary","hw":"secondary","st":"paved"},{"c":"u}yqDbmwvRjPsVpCeCzDoAdOsA|CoCp@}CaBiLNcM","mi":1.006,"s":"paved_smooth","n":"Maverick Drive","rc":"secondary","hw":"secondary","st":"paved"},{"c":"wmxqDhguvRHsG_BwIoKeVaIgImEgJoGsH{BkO_CmFyCoCw^sOuK}GgNuN}J}Q}HoVmKwc@sGsa@_I}q@cG}]yGyXeX}|@{Jke@iEy!^}J`B{HrBqEfEcFhJqEdIkH`MoGzHwIn@oCN{On@iEhBiDpFeG~AwD~A}a@}@mEuH{G}AiCkCkWyAkFqQc!}KmHqBeDcAkFHgFhEaS{AyGkE}HsCcCyUaGaEeC_DkEeBaGYyFXyM}B}LKyDv@yFdF}L`@}DYyBiF_Me@}C[mUrA{`@{D}!aEwOiCa]h@aWwCi[eDwGq!wV_LsW_sAswBmDuIAqDvC}W`BeGlRySbH{KpLsFba@s[xIoSrEyVrIaH`JgMhFkNnKqEtI_J","mi":17.692,"s":"paved_smooth","n":"Maverick Drive","rc":"tertiary","hw":"tertiary","st":"paved"},{"c":"el`rDrhfuRpPzIjGbAnVvAxV@pSoFdCHjGdCtI|AnJlExS~CnJrGxYzJpPlIjEl@v[x@~Ah@jAjAtDlIlGzRv@tLv@pBjEbElQpGzNhSrD~ArJLzRnLnQhBdFzAzEUpAy@~AyCd@BFbMcCpDm@jCJnJa@JaCgBUl@|@rGYTgBcAi@!~AtEMxEpBpCy@nFvBlDrKxKt@xBh@zG|@nBtF~C","mi":6.307,"s":"paved_smooth","n":"Chisos Basin Road","rc":"tertiary","hw":"tertiary","st":"paved"},{"c":"q|sqDlwnuR~@!~@}A","mi":0.061,"s":"paved_smooth","n":"Basin Junction","rc":"service_other","hw":"service","st":"paved"},{"c":"qxsqDlunuRYaAiA_@","mi":0.049,"s":"paved_smooth","n":"Chisos Mountain Lodge Road","rc":"service_other","hw":"service","st":"paved"}]},"alt":null}];
+
+/* ============ UI ============ */
+const $=id=>document.getElementById(id);
+const fmt=(x,d)=>x.toFixed(d==null?1:d);
+const esc=s=>String(s).replace(/[&<>"]/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch]));
+const css=v=>getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+let LIVE=false, current=null, showAlt=true, map=null, layer=null, baseLayers={}, baseKind='map', baseFailed=false;
+
+const carDef=()=>CARS.find(c=>c.make===$('make').value&&c.model===$('model').value&&c.gen===$('gen').value)||CARS[0];
+const uniq=a=>[...new Set(a)];
+const opts=a=>a.map(x=>'<option value="'+esc(x)+'">'+esc(x)+'</option>').join('');
+function fillModels(){const ms=uniq(CARS.filter(c=>c.make===$('make').value).map(c=>c.model)).sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}));$('model').innerHTML=opts(ms)}
+function fillGens(){$('gen').innerHTML=opts(CARS.filter(c=>c.make===$('make').value&&c.model===$('model').value).map(c=>c.gen))}
+function pickCar(make,model,gen){$('make').value=make;fillModels();if(model)$('model').value=model;fillGens();if(gen)$('gen').value=gen}
+function car(){
+  const stock=parseFloat($('clr').value)||4.5;
+  const drop=$('susp').value==='custom'?Math.max(0,parseFloat($('drop').value)||0):+$('susp').value;
+  const lipD=$('lip').checked?0.75:0;
+  const liftRaw=parseFloat($('lift').value);
+  const hasLift=!$('liftField').hidden&&liftRaw>stock;
+  return {name:carDef().n,stock,drop,lipD,clr:Math.max(1.5,stock-drop-lipD),
+    lift:hasLift?Math.max(1.5,liftRaw-drop-lipD):null,hasLift,useLift:hasLift&&$('useLift').checked,rain:$('rain').checked};
+}
+function syncCarUI(){
+  const d=carDef();
+  $('liftField').hidden=!(d.lift||d.custom);
+  $('dropField').hidden=$('susp').value!=='custom';
+  const c=car();
+  $('useLiftRow').hidden=!c.hasLift;
+  let t='Effective clearance: <b>'+fmt(c.clr)+' in</b>';
+  if(c.drop||c.lipD) t+=' ('+fmt(c.stock)+' stock'+(c.drop?', '+fmt(c.drop)+' lowered':'')+(c.lipD?', lip':'')+')';
+  if(c.useLift) t+=', <b>'+fmt(c.lift)+' in</b> with the nose lift up';
+  else if(!c.hasLift&&!d.custom) t+='. No nose lift on this car.';
+  $('eff').innerHTML=t;
+}
+function fillCars(){
+  const makes=uniq(CARS.filter(c=>!c.custom).map(c=>c.make)).sort((a,b)=>a.localeCompare(b));
+  $('make').innerHTML=opts(makes.concat(['Other']));
+  let saved=null;try{saved=JSON.parse(localStorage.getItem('clearance.car3')||'null')}catch(e){}
+  if(saved&&CARS.some(c=>c.make===saved.make&&c.model===saved.model&&c.gen===saved.gen)){
+    pickCar(saved.make,saved.model,saved.gen);
+    $('clr').value=saved.stock;$('lift').value=saved.lift||'';$('susp').value=saved.susp||'0';$('drop').value=saved.drop||1;$('lip').checked=!!saved.lip;$('useLift').checked=saved.useLift!==false;
+  } else {pickCar('BMW','M440i','G22/G23 Coupe and Convertible · 2021–present');setCar(carDef())}
+  syncCarUI();
+}
+function setCar(c){$('clr').value=c.clr;$('lift').value=c.lift||''}
+function saveCar(){try{localStorage.setItem('clearance.car3',JSON.stringify({make:$('make').value,model:$('model').value,gen:$('gen').value,stock:$('clr').value,lift:$('lift').value,susp:$('susp').value,drop:$('drop').value,lip:$('lip').checked,useLift:$('useLift').checked}))}catch(e){}}
+
+function initMap(){
+  map=L.map('map',{zoomControl:true,attributionControl:true}).setView([39.5,-98.35],4);
+  map.zoomControl.setPosition('bottomright');
+  const dark=matchMedia('(prefers-color-scheme: dark)').matches&&document.documentElement.dataset.theme!=='light'||document.documentElement.dataset.theme==='dark';
+  baseLayers.map=L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/'+(dark?'dark_all':'voyager')+'/{z}/{x}/{y}{r}.png',{maxZoom:19,subdomains:'abcd',attribution:'&copy; OpenStreetMap contributors &copy; CARTO'});
+  const esri=path=>L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/'+path+'/MapServer/tile/{z}/{y}/{x}',{maxZoom:19,attribution:'Imagery &copy; Esri, Maxar, Earthstar Geographics'});
+  const satTiles=[esri('World_Imagery'),esri('Reference/World_Transportation'),esri('Reference/World_Boundaries_and_Places')];
+  baseLayers.sat=L.layerGroup(satTiles);
+  [baseLayers.map].concat(satTiles).forEach(t=>t.on('tileerror',()=>{if(!baseFailed){baseFailed=true;$('nobase').hidden=false}}));
+  baseLayers.map.addTo(map);
+  layer=L.layerGroup().addTo(map);
+  const pick=k=>{baseKind=k;for(const x in baseLayers){if(x===k)baseLayers[x].addTo(map);else map.removeLayer(baseLayers[x])}$('bMap').setAttribute('aria-pressed',k==='map');$('bSat').setAttribute('aria-pressed',k==='sat')};
+  $('bMap').onclick=()=>pick('map');$('bSat').onclick=()=>pick('sat');
+}
+
+function colorOf(c){return css('--'+c)}
+function drawRoute(an,alt,altAn){
+  layer.clearLayers();
+  const casing=css('--casing');
+  if(alt&&showAlt&&altAn){
+    for(const r of altAn.runs){L.polyline(r.c,{color:casing,weight:7,opacity:.9,interactive:false}).addTo(layer)}
+    for(const r of altAn.runs){L.polyline(r.c,{color:css('--accent'),weight:4,dashArray:'2 7',lineCap:'round',opacity:.95}).bindTooltip('Paved alternate · '+esc(r.n||'road')+' · '+esc(surfaceText(r)),{sticky:true}).addTo(layer)}
+  }
+  for(const r of an.runs){L.polyline(r.c,{color:casing,weight:10,opacity:.95,interactive:false}).addTo(layer)}
+  for(const r of an.runs){
+    L.polyline(r.c,{color:colorOf(r.j.color),weight:6,opacity:1,lineCap:'round'})
+      .bindTooltip('<b>'+esc(r.n||'Unnamed road')+'</b><br>'+esc(surfaceText(r))+' · mi '+fmt(r.a)+'–'+fmt(r.b),{sticky:true}).addTo(layer);
+  }
+  const first=an.runs[0].c[0],lastRun=an.runs[an.runs.length-1],last=lastRun.c[lastRun.c.length-1];
+  L.marker(first,{icon:L.divIcon({className:'',html:'<div class="mk end">A</div>',iconSize:[26,26],iconAnchor:[13,13]})}).addTo(layer);
+  L.marker(last,{icon:L.divIcon({className:'',html:'<div class="mk end">B</div>',iconSize:[26,26],iconAnchor:[13,13]})}).addTo(layer);
+  warnSegs(an).forEach((s,i)=>{
+    L.marker(s.runs[0].c[0],{icon:L.divIcon({className:'',html:'<div class="mk small '+s.color+'">'+(i+1)+'</div>',iconSize:[20,20],iconAnchor:[10,10]})}).bindTooltip(esc(s.n||'Unnamed road')+' · '+esc(s.surf)).addTo(layer);
+  });
+}
+function boundsOf(runs){const b=L.latLngBounds([]);runs.forEach(r=>r.c.forEach(p=>b.extend(p)));return b}
+function warnSegs(an){return an.segs.filter(s=>s.color!=='go'&&(s.mi>=0.03||s.color==='stop')).slice(0,30)}
+
+function segText(s,cr){
+  const parts=[];
+  const carName=cr.name==='Custom car'?'car':cr.name;
+  if(s.fwd) parts.push('Tagged 4WD only in OpenStreetMap. Do not take a low car here.');
+  else if(s.color==='stop') parts.push('Needs roughly '+fmt(s.need)+' in of clearance. Your '+carName+' has '+fmt(s.c)+' in'+(cr.useLift?' with the nose lift up':(cr.drop||cr.lipD)?' as lowered':'')+'.'+(s.lvl>=3?' Expect ruts, rocks or washouts.':''));
+  else if(s.unverified) parts.push("OpenStreetMap doesn't say what surface this is. Rural roads like this are often dirt, so check the satellite view.");
+  else if(s.lvl===1) parts.push('Rough or broken pavement. Watch for potholes and keep the speed down.');
+  else if(s.lvl>=2) parts.push('Loose stones can chip paint and hit the underbody. Stay under 15 mph and keep well back from other cars.');
+  if(s.rain) parts.push('Rain makes this softer and rutted, so it is rated one step worse.');
+  if(s.steep) parts.push('Sustained grades near '+s.g+'%. Take crests, dips and driveway lips at an angle'+(cr.useLift?' with the nose lift up':'')+'.');
+  return parts.join(' ');
+}
+
+function profileSVG(an,elev){
+  if(!elev||elev.length<3) return '';
+  const W=360,H=118,pl=34,pr=6,pt=8,pb=18;
+  const maxMi=elev[elev.length-1][0]||an.miles;
+  const hs=elev.map(p=>p[1]*3.281);const lo=Math.min(...hs),hi=Math.max(...hs);const span=Math.max(50,hi-lo);
+  const X=m=>pl+(m/maxMi)*(W-pl-pr),Y=h=>pt+(1-(h-lo)/span)*(H-pt-pb);
+  const colorAt=m=>{const r=an.runs.find(r=>m>=r.a&&m<=r.b+1e-6);return r?r.j.color:'go'};
+  let paths='',cur=null,d='';
+  elev.forEach((p,i)=>{const c=colorAt(p[0]);const pt_=X(p[0]).toFixed(1)+','+Y(hs[i]).toFixed(1);
+    if(c!==cur){if(d)paths+='<path d="'+d+'" fill="none" stroke="var(--'+cur+')" stroke-width="2.4" stroke-linejoin="round"/>';d=(i?'M'+X(elev[i-1][0]).toFixed(1)+','+Y(hs[i-1]).toFixed(1)+'L':'M')+pt_;cur=c}else d+='L'+pt_});
+  paths+='<path d="'+d+'" fill="none" stroke="var(--'+cur+')" stroke-width="2.4" stroke-linejoin="round"/>';
+  const area='M'+X(0)+','+(H-pb)+elev.map((p,i)=>'L'+X(p[0]).toFixed(1)+','+Y(hs[i]).toFixed(1)).join('')+'L'+X(maxMi)+','+(H-pb)+'Z';
+  return '<svg viewBox="0 0 '+W+' '+H+'" role="img" aria-label="Elevation profile">'+
+    '<line x1="'+pl+'" x2="'+(W-pr)+'" y1="'+Y(hi)+'" y2="'+Y(hi)+'" stroke="var(--line)" stroke-dasharray="2 3"/>'+
+    '<line x1="'+pl+'" x2="'+(W-pr)+'" y1="'+(H-pb)+'" y2="'+(H-pb)+'" stroke="var(--line)"/>'+
+    '<path d="'+area+'" fill="var(--soft)"/>'+paths+
+    '<text x="'+(pl-4)+'" y="'+(Y(hi)+3)+'" text-anchor="end">'+Math.round(hi).toLocaleString()+'</text>'+
+    '<text x="'+(pl-4)+'" y="'+(Y(lo)+3)+'" text-anchor="end">'+Math.round(lo).toLocaleString()+'</text>'+
+    '<text x="'+pl+'" y="'+(H-4)+'">0 mi</text><text x="'+(W-pr)+'" y="'+(H-4)+'" text-anchor="end">'+fmt(maxMi)+' mi</text>'+
+    '<text x="'+(pl-4)+'" y="'+(H-pb+3)+'" text-anchor="end" opacity="0">.</text></svg>';
+}
+
+function gmaps(route,via){
+  const f=route.from,t=route.to;let u='https://www.google.com/maps/dir/?api=1&travelmode=driving&origin='+f.lat.toFixed(5)+','+f.lon.toFixed(5)+'&destination='+t.lat.toFixed(5)+','+t.lon.toFixed(5);
+  if(via&&via.length)u+='&waypoints='+via.map(p=>p[0].toFixed(5)+','+p[1].toFixed(5)).join('%7C');
+  return u;
+}
+function viaPoints(route){const all=[];route.runs.forEach(r=>r.c.forEach(p=>all.push(p)));if(all.length<8)return[];return [0.25,0.5,0.75].map(f=>all[Math.floor(all.length*f)])}
+
+function render(){
+  if(!current) return;
+  const cr=car();
+  const an=analyze(current.main,cr);
+  const alt=current.alt;const altAn=alt?analyze(alt,cr):null;
+  const V={go:['Good to go','Every mapped section suits your ride height.'],caution:['Drive with care','Your car can make it, but some sections need slow, careful driving.'],stop:['Not for this car','Part of this route is rougher than your clearance allows.']}[an.verdict];
+  const stopSeg=an.segs.filter(s=>s.color==='stop').sort((a,b)=>b.mi-a.mi)[0];
+  let line=V[1];
+  if(an.verdict==='stop'&&stopSeg) line=fmt(an.tot.stop)+' mi is too rough for '+fmt(stopSeg.c)+' in of clearance, mostly '+(stopSeg.n||'an unnamed road')+' ('+stopSeg.surf.toLowerCase()+').';
+  else if(an.verdict==='caution') line=fmt(an.tot.caution)+' mi needs care'+(an.unpavedMi>0.05?', including '+fmt(an.unpavedMi)+' mi unpaved':'')+'.';
+  const pct=x=>(100*x/Math.max(an.miles,0.01)).toFixed(1)+'%';
+  let h='';
+  h+='<div class="verdict '+an.verdict+'"><h2><span class="lamp"></span>'+V[0]+'</h2><p>'+esc(line)+'</p>'+
+     '<div class="bar" aria-hidden="true"><i style="width:'+pct(an.tot.go)+';background:var(--go)"></i><i style="width:'+pct(an.tot.caution)+';background:var(--caution)"></i><i style="width:'+pct(an.tot.stop)+';background:var(--stop)"></i></div>'+
+     '<div class="stats"><div class="stat"><b>'+fmt(current.main.miles)+'</b><span>miles</span></div><div class="stat"><b>'+Math.floor(current.main.minutes/60)+'h '+String(current.main.minutes%60).padStart(2,'0')+'</b><span>drive time</span></div><div class="stat"><b>'+fmt(an.unpavedMi)+'</b><span>mi unpaved</span></div><div class="stat"><b>'+fmt(an.tot.stop)+'</b><span>mi red</span></div></div></div>';
+  h+='<div class="legend"><span><i style="background:var(--go)"></i>OK for your car</span><span><i style="background:var(--caution)"></i>Slow, careful</span><span><i style="background:var(--stop)"></i>Too rough</span>'+(alt?'<span><i style="background:var(--accent)"></i>Paved alternate</span>':'')+'</div>';
+  if(an.firstRough){
+    h+='<div class="card"><h3>Pavement ends at mile '+fmt(an.firstRough.a)+'</h3><p>'+esc(an.firstRough.n||'An unnamed road')+' turns to '+esc(surfaceText(an.firstRough).toLowerCase())+'. '+(an.lastPaved?'If you want to park and walk or wait for a pickup, the last paved spot is just before it.':'The route starts on it.')+'</p>'+
+      (an.lastPaved?'<div class="actions"><a class="link" target="_blank" rel="noopener" href="https://www.google.com/maps/search/?api=1&query='+an.lastPaved[0].toFixed(5)+','+an.lastPaved[1].toFixed(5)+'">Last paved spot in Google Maps</a></div>':'')+'</div>';
+  }
+  if(alt&&altAn){
+    const dm=alt.minutes-current.main.minutes;
+    h+='<div class="card"><h3>Paved alternate: '+fmt(alt.miles)+' mi, '+(dm>=0?'+':'')+dm+' min</h3><p>'+(alt.unpavedMi>0.05?'Cuts unpaved driving from '+fmt(an.unpavedMi)+' to '+fmt(alt.unpavedMi)+' mi. What is left could not be routed around.':'Stays on pavement the whole way.')+' Rated '+({go:'green',caution:'yellow',stop:'red'}[altAn.verdict])+' for your car.</p>'+
+      '<div class="actions"><button class="btn ghost" id="toggleAlt" type="button">'+(showAlt?'Hide':'Show')+' on map</button><a class="link" target="_blank" rel="noopener" href="'+gmaps(alt,viaPoints(alt))+'" style="align-self:center">Open in Google Maps</a></div></div>';
+  } else if(current.altChecked&&an.unpavedMi>0.15){
+    h+='<div class="card"><h3>No paved way around</h3><p>Routing found no paved road that avoids these sections. Plan to park at the last paved spot, or bring a higher car.</p></div>';
+  }
+  h+='<div class="actions"><a class="link" target="_blank" rel="noopener" href="'+gmaps(current.main,viaPoints(current.main))+'">Open this route in Google Maps for turn-by-turn</a></div>';
+  const prof=profileSVG(an,current.main.elev);
+  if(prof) h+='<div class="profile"><p class="label">Elevation (ft)</p>'+prof+'</div>';
+  const ws=warnSegs(an);
+  h+='<div><p class="label">Warnings along the way · '+ws.length+'</p>';
+  if(!ws.length) h+='<p class="note">No warnings for your car on this route.</p>';
+  else h+='<ul class="warns">'+ws.map((s,i)=>'<li><button class="warn" type="button" data-i="'+an.segs.indexOf(s)+'"><span class="pin '+s.color+'">'+(i+1)+'</span><span><span class="t">'+esc(s.n||'Unnamed road')+' · '+esc(s.surf)+'</span><br><span class="m">MI '+fmt(s.a)+'–'+fmt(s.b)+' · '+fmt(s.mi,2)+' MI</span><div class="d">'+esc(segText(s,cr))+'</div>'+(s.liftHelps?'<div class="tip">Raise the nose lift before this section.</div>':'')+'</span></button></li>').join('')+'</ul>';
+  h+='</div>';
+  if(!current.main.tagsOk) h+='<p class="note">Detailed road tags were not available for this check, so ratings use the basic surface only.</p>';
+  $('results').innerHTML=h;
+  $('results').querySelectorAll('.warn').forEach(b=>b.onclick=()=>{const s=an.segs[+b.dataset.i];map.fitBounds(boundsOf(s.runs),{padding:[60,60],maxZoom:15});if(matchMedia('(max-width:820px)').matches)$('map').scrollIntoView({behavior:'smooth'})});
+  const t=$('toggleAlt');if(t)t.onclick=()=>{showAlt=!showAlt;render()};
+  drawRoute(an,alt,altAn);
+  return an;
+}
+function show(data,fit){current=data;render();if(fit!==false)map.fitBounds(boundsOf(data.main.runs.concat(data.alt?data.alt.runs:[])),{padding:[40,40]})}
+
+async function runLive(e){
+  e.preventDefault();
+  const f=$('from').value.trim(),t=$('to').value.trim();
+  $('err').hidden=true;
+  if(!f||!t){$('err').textContent='Enter both a start and a destination.';$('err').hidden=false;return}
+  const btn=$('go');btn.disabled=true;
+  const step=s=>btn.innerHTML='<span class="spin"></span>'+s;
+  try{
+    step('Finding places');const a=await geocode(f,$('from'));const b=await geocode(t,$('to'));
+    step('Routing and reading road tags');const main=await buildRoute(a,b);
+    show({main,alt:null,altChecked:false});
+    step('Looking for a paved alternate');const alt=await pavedAlternate(main);
+    show({main,alt,altChecked:true});
+    try{if(/^https?:$/.test(location.protocol)&&!/claude\.ai$/.test(location.hostname))history.replaceState(null,'','?from='+encodeURIComponent(f)+'&to='+encodeURIComponent(t))}catch(e){}
+  }catch(err){$('err').textContent=(err&&err.message)||'Something went wrong. Try again in a minute.';$('err').hidden=false}
+  finally{btn.disabled=false;btn.textContent='Check this route'}
+}
+
+function demoChips(){
+  $('demos').innerHTML=DEMO.map((d,i)=>'<button class="chip" type="button" data-i="'+i+'" aria-pressed="false"><b>'+esc(d.title)+'</b><small>'+esc(d.blurb)+'</small></button>').join('');
+  $('demos').querySelectorAll('.chip').forEach(b=>b.onclick=()=>pickDemo(+b.dataset.i));
+}
+function pickDemo(i){
+  const d=DEMO[i];
+  document.querySelectorAll('.chip').forEach(c=>c.setAttribute('aria-pressed',String(+c.dataset.i===i)));
+  $('from').value=d.main.from.label;$('to').value=d.main.to.label;
+  const expand=r=>Object.assign({},r,{runs:r.runs.map(x=>Object.assign({},x,{c:decode(x.c.replace(/!/g,'\\'),5)}))});
+  show({main:expand(d.main),alt:d.alt?expand(d.alt):null,altChecked:true});
+}
+
+const LIVE_URL='';
+const PHOTON='https://photon.komoot.io/api/';
+function placeLabel(p){const x=p.properties||{};const main=x.name||[x.housenumber,x.street].filter(Boolean).join(' ')||x.city||'Unnamed place';
+  const sub=[x.name&&x.street?[x.housenumber,x.street].filter(Boolean).join(' '):'',x.city||x.county,x.state,x.country!=='United States'?x.country:''].filter(Boolean).filter(v=>v!==main);
+  return {main,sub:[...new Set(sub)].join(', ')}}
+function setupAutocomplete(id){
+  const el=$(id),list=$(id+'List');let timer=null,items=[],sel=-1,seq=0;
+  const close=()=>{list.hidden=true;el.setAttribute('aria-expanded','false');sel=-1};
+  const choose=i=>{const it=items[i];if(!it)return;const lb=it.l.main+(it.l.sub?', '+it.l.sub:'');el.value=lb;el.dataset.label=lb;el.dataset.lat=it.lat;el.dataset.lon=it.lon;close()};
+  const paint=()=>{list.innerHTML=items.map((it,i)=>'<li role="option" id="'+id+'o'+i+'" aria-selected="'+(i===sel)+'" data-i="'+i+'"><b>'+esc(it.l.main)+'</b>'+(it.l.sub?'<small>'+esc(it.l.sub)+'</small>':'')+'</li>').join('');
+    list.hidden=!items.length;el.setAttribute('aria-expanded',String(!!items.length));
+    list.querySelectorAll('li').forEach(li=>li.onmousedown=e=>{e.preventDefault();choose(+li.dataset.i)})};
+  el.addEventListener('input',()=>{delete el.dataset.lat;clearTimeout(timer);const q=el.value.trim();
+    if(!LIVE||q.length<3||/^-?\d+(\.\d+)?\s*,/.test(q)){items=[];paint();return}
+    timer=setTimeout(async()=>{const my=++seq;try{const c=map.getCenter();
+      const r=await tfetch(PHOTON+'?limit=6&lang=en&q='+encodeURIComponent(q)+'&lat='+c.lat.toFixed(3)+'&lon='+c.lng.toFixed(3),{},8000);const j=await r.json();
+      if(my!==seq)return;items=(j.features||[]).map(f=>({lat:f.geometry.coordinates[1],lon:f.geometry.coordinates[0],l:placeLabel(f)}));sel=-1;paint()}catch(e){}},250)});
+  el.addEventListener('keydown',e=>{if(list.hidden)return;
+    if(e.key==='ArrowDown'){sel=Math.min(items.length-1,sel+1);paint();e.preventDefault()}
+    else if(e.key==='ArrowUp'){sel=Math.max(0,sel-1);paint();e.preventDefault()}
+    else if(e.key==='Enter'&&sel>=0){choose(sel);e.preventDefault()}
+    else if(e.key==='Escape')close()});
+  el.addEventListener('blur',()=>setTimeout(close,120));
+}
+function emptyState(){
+  $('results').innerHTML='<div class="empty"><h3>Where are you headed?</h3><ol><li>Pick your car and any mods below.</li><li>Type a start and a destination, like your Airbnb or a trailhead.</li><li>Every mile turns green, yellow or red for your ride height, with warnings, where the pavement ends and a paved alternate when there is one.</li></ol></div>';
+}
+async function probe(){
+  try{const r=await tfetch(VAL+'/status',{},6000);return r.ok}catch(e){return false}
+}
+async function boot(){
+  fillCars();initMap();demoChips();setupAutocomplete('from');setupAutocomplete('to');
+  setTimeout(()=>{map.invalidateSize();if(current)map.fitBounds(boundsOf(current.main.runs.concat(current.alt?current.alt.runs:[])),{padding:[40,40]})},300);
+  const changed=()=>{syncCarUI();saveCar();render()};
+  $('make').onchange=()=>{fillModels();fillGens();setCar(carDef());changed()};
+  $('model').onchange=()=>{fillGens();setCar(carDef());changed()};
+  $('gen').onchange=()=>{setCar(carDef());changed()};
+  ['clr','lift','drop'].forEach(id=>$(id).oninput=changed);
+  ['susp','lip','useLift','rain'].forEach(id=>$(id).onchange=changed);
+  $('form').onsubmit=runLive;
+  $('swap').onclick=()=>{const a=$('from'),b=$('to');const v=a.value,d={...a.dataset};a.value=b.value;Object.keys(a.dataset).forEach(k=>delete a.dataset[k]);Object.assign(a.dataset,b.dataset);b.value=v;Object.keys(b.dataset).forEach(k=>delete b.dataset[k]);Object.assign(b.dataset,d)};
+  $('locate').onclick=()=>{
+    if(!navigator.geolocation){$('err').textContent='Location is not available in this browser. Type your start instead.';$('err').hidden=false;return}
+    $('locate').disabled=true;
+    navigator.geolocation.getCurrentPosition(p=>{const el=$('from');el.value='My location';el.dataset.label='My location';el.dataset.lat=p.coords.latitude;el.dataset.lon=p.coords.longitude;$('locate').disabled=false;if(!current)map.setView([p.coords.latitude,p.coords.longitude],11)},
+      ()=>{$('locate').disabled=false;$('err').textContent='Could not get your location. Allow location access, or type your start instead.';$('err').hidden=false},{enableHighAccuracy:false,timeout:10000});
+  };
+  emptyState();
+  LIVE=await probe();
+  $('mode').textContent=LIVE?'Live data':'Preview';$('mode').classList.toggle('live',LIVE);
+  if(LIVE){
+    let q=null;try{q=new URLSearchParams(location.search)}catch(e){}
+    if(q&&q.get('from')&&q.get('to')){$('from').value=q.get('from');$('to').value=q.get('to');runLive({preventDefault(){}})}
+  }
+  if(!LIVE){
+    $('trips').hidden=false;if(DEMO.length) pickDemo(0);
+    ['from','to','go','locate','swap'].forEach(id=>$(id).disabled=true);
+    $('modeNote').innerHTML=LIVE_URL?'Route search is off in this preview. <a class="link" target="_blank" rel="noopener" href="'+LIVE_URL+'">Open the live app</a> to check any trip.':'Route search is off in this preview. Open the downloadable copy to check any trip.';
+    $('modeNote').hidden=false;
+  }
+}
+boot();
+</script>
+</body></html>
