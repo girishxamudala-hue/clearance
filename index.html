@@ -258,6 +258,7 @@ a.link:hover{text-decoration:underline}
 const VAL = 'https://valhalla1.openstreetmap.de';
 const OVERPASS = ['https://overpass.kumi.systems/api/interpreter','https://overpass-api.de/api/interpreter','https://overpass.private.coffee/api/interpreter'];
 const NOMI = 'https://nominatim.openstreetmap.org/search';
+const OSRM = 'https://router.project-osrm.org/route/v1/driving/';
 const OSMAPI = 'https://api.openstreetmap.org/api/0.6/ways.json';
 
 function decode(str, prec){const f=Math.pow(10,prec||6);let i=0,lat=0,lon=0;const out=[];while(i<str.length){let b,s=0,r=0;do{b=str.charCodeAt(i++)-63;r|=(b&31)<<s;s+=5}while(b>=32);lat+=(r&1)?~(r>>1):(r>>1);s=0;r=0;do{b=str.charCodeAt(i++)-63;r|=(b&31)<<s;s+=5}while(b>=32);lon+=(r&1)?~(r>>1):(r>>1);out.push([lat/f,lon/f])}return out}
@@ -277,15 +278,44 @@ async function valRoute(a,b,auto,avoid){
   if(avoid&&avoid.length) body.exclude_polygons=avoid;
   const r=await tfetch(VAL+'/route',{method:'POST',body:JSON.stringify(body)},30000);
   const j=await r.json();
-  if(!j.trip) throw new Error(j.error||'No route found');
+  if(!j.trip){
+    // The public Valhalla server caps routes at 1,000 km. Long road trips are routed by OSRM instead,
+    // then read edge by edge from Valhalla in chunks (see traceEdges).
+    if(!avoid&&!(auto&&auto.exclude_unpaved)&&/distance/i.test(j.error||'')) return osrmRoute(a,b);
+    throw new Error(j.error||'No route found');
+  }
   return {shape:j.trip.legs[0].shape,miles:j.trip.summary.length,minutes:Math.round(j.trip.summary.time/60)};
 }
-async function traceEdges(shape){
-  const attrs=['edge.surface','edge.way_id','edge.length','edge.road_class','edge.use','edge.unpaved','edge.max_upward_grade','edge.max_downward_grade','edge.names','edge.begin_shape_index','edge.end_shape_index','shape'];
-  const r=await tfetch(VAL+'/trace_attributes',{method:'POST',body:JSON.stringify({encoded_polyline:shape,shape_match:'edge_walk',costing:'auto',units:'miles',filters:{attributes:attrs,action:'include'}})},30000);
+async function osrmRoute(a,b){
+  const r=await tfetch(OSRM+a.lon+','+a.lat+';'+b.lon+','+b.lat+'?overview=full&geometries=polyline6',{},30000);
   const j=await r.json();
-  if(!j.edges) throw new Error(j.error||'Road details unavailable');
-  return {pts:decode(j.shape||shape),edges:j.edges};
+  if(j.code!=='Ok'||!j.routes||!j.routes.length) throw new Error('No route found between those places.');
+  return {shape:j.routes[0].geometry,miles:j.routes[0].distance/1609.34,minutes:Math.round(j.routes[0].duration/60),long:true};
+}
+function encode(pts,prec){const f=Math.pow(10,prec||6);let out='',pl=0,pn=0;const e=v=>{v=v<0?~(v<<1):(v<<1);let s='';while(v>=32){s+=String.fromCharCode((32|(v&31))+63);v>>=5}return s+String.fromCharCode(v+63)};
+  for(const p of pts){const la=Math.round(p[0]*f),lo=Math.round(p[1]*f);out+=e(la-pl)+e(lo-pn);pl=la;pn=lo}return out}
+const TRACE_CHUNK=9000;   // the public server accepts at most 16,000 shape points per call
+async function traceOne(shape){
+  const attrs=['edge.surface','edge.way_id','edge.length','edge.road_class','edge.use','edge.unpaved','edge.max_upward_grade','edge.max_downward_grade','edge.names','edge.begin_shape_index','edge.end_shape_index','shape'];
+  let last='Road details unavailable';
+  for(const match of ['edge_walk','map_snap']){
+    const r=await tfetch(VAL+'/trace_attributes',{method:'POST',body:JSON.stringify({encoded_polyline:shape,shape_match:match,costing:'auto',units:'miles',filters:{attributes:attrs,action:'include'}})},45000);
+    const j=await r.json();
+    if(j.edges) return {pts:decode(j.shape||shape),edges:j.edges};
+    last=j.error||last;
+  }
+  throw new Error(last);
+}
+async function traceEdges(shape,onProgress){
+  const all=decode(shape);
+  if(all.length<=TRACE_CHUNK) return traceOne(shape);
+  const parts=[];for(let i=0;i<all.length-1;i+=TRACE_CHUNK) parts.push(all.slice(i,Math.min(all.length,i+TRACE_CHUNK+1)));
+  const res=new Array(parts.length);let next=0,done=0;
+  await Promise.all([0,1,2].map(async()=>{while(next<parts.length){const k=next++;res[k]=await traceOne(encode(parts[k]));done++;onProgress&&onProgress(done,parts.length)}}));
+  const pts=[],edges=[];
+  res.forEach((r,k)=>{const off=k?pts.length-1:0;pts.push(...(k?r.pts.slice(1):r.pts));
+    for(const e of r.edges) edges.push(Object.assign({},e,{begin_shape_index:e.begin_shape_index+off,end_shape_index:e.end_shape_index+off}))});
+  return {pts,edges};
 }
 async function osmTags(ids){
   // Primary: the OpenStreetMap API (fast, one call per 100 ways). Fallback: Overpass mirrors.
@@ -319,9 +349,9 @@ function buildRuns(pts,edges,tags){
   }
   return runs;
 }
-async function buildRoute(a,b,auto,avoid){
+async function buildRoute(a,b,auto,avoid,onProgress){
   const r=await valRoute(a,b,auto,avoid);
-  const tr=await traceEdges(r.shape);
+  const tr=await traceEdges(r.shape,onProgress);
   const [tags,elev]=await Promise.all([osmTags(tr.edges.map(e=>e.way_id)).catch(()=>null),elevation(r.shape,r.miles).catch(()=>null)]);
   return {from:a,to:b,miles:r.miles,minutes:r.minutes,runs:buildRuns(tr.pts,tr.edges,tags),elev,tagsOk:!!tags};
 }
@@ -331,6 +361,26 @@ function pointAt(c,f){let tot=0;const d=[0];for(let i=1;i<c.length;i++){tot+=mil
   const t=tot*f;for(let i=1;i<c.length;i++)if(d[i]>=t){const k=(t-d[i-1])/((d[i]-d[i-1])||1);return [c[i-1][0]+(c[i][0]-c[i-1][0])*k,c[i-1][1]+(c[i][1]-c[i-1][1])*k]}return c[c.length-1]}
 const unpavedOf=route=>route.runs.filter(isUnpaved).reduce((s,r)=>s+r.mi,0);
 async function pavedAlternate(main){
+  if(unpavedOf(main)<0.15) return null;
+  if(main.miles<=550) return pavedAlternateCore(main);
+  // Long trip: only re-route the stretch around the unpaved roads, keep the rest of the drive as is.
+  const runs=main.runs;let acc=0;const at=runs.map(r=>{const a=acc;acc+=r.mi;return a});
+  const idx=runs.map((r,k)=>isUnpaved(r)?k:-1).filter(k=>k>=0);
+  const ws=Math.max(0,at[idx[0]]-40),we=Math.min(acc,at[idx[idx.length-1]]+runs[idx[idx.length-1]].mi+40);
+  if(we-ws>550) return null;
+  let i=0;while(i<runs.length-1&&at[i]+runs[i].mi<=ws)i++;
+  let j=runs.length-1;while(j>0&&at[j]>=we)j--;
+  const sub=runs.slice(i,j+1),A=sub[0].c[0],B=sub[sub.length-1].c[sub[sub.length-1].c.length-1];
+  const subMi=sub.reduce((s,r)=>s+r.mi,0);
+  const subMain={from:{lat:A[0],lon:A[1]},to:{lat:B[0],lon:B[1]},runs:sub,miles:subMi};
+  const subAlt=await pavedAlternateCore(subMain);
+  if(!subAlt) return null;
+  const alt={from:main.from,to:main.to,runs:runs.slice(0,i).concat(subAlt.runs,runs.slice(j+1)),
+    miles:main.miles-subMi+subAlt.miles,minutes:Math.round(main.minutes*(1-subMi/main.miles)+subAlt.minutes),elev:null,tagsOk:subAlt.tagsOk};
+  alt.unpavedMi=unpavedOf(alt);
+  return alt;
+}
+async function pavedAlternateCore(main){
   const unpavedMi=unpavedOf(main);
   if(unpavedMi<0.15) return null;
   let alt=null;
@@ -611,7 +661,7 @@ async function runLive(e){
   const step=s=>btn.innerHTML='<span class="spin"></span>'+s;
   try{
     step('Finding places');const a=await geocode(f,$('from'));const b=await geocode(t,$('to'));
-    step('Routing and reading road tags');const main=await buildRoute(a,b);
+    step('Routing and reading road tags');const main=await buildRoute(a,b,undefined,undefined,(d,n)=>step('Reading road details '+d+' of '+n));
     show({main,alt:null,altChecked:false});
     step('Looking for a paved alternate');const alt=await pavedAlternate(main);
     show({main,alt,altChecked:true});
