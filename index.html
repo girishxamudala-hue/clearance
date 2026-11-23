@@ -632,7 +632,7 @@ function pickDemo(i){
   show({main:expand(d.main),alt:d.alt?expand(d.alt):null,altChecked:true});
 }
 
-const LIVE_URL='';
+const LIVE_URL='https://girishxamudala-hue.github.io/clearance/';
 const PHOTON='https://photon.komoot.io/api/';
 function placeLabel(p){const x=p.properties||{};const main=x.name||[x.housenumber,x.street].filter(Boolean).join(' ')||x.city||'Unnamed place';
   const sub=[x.name&&x.street?[x.housenumber,x.street].filter(Boolean).join(' '):'',x.city||x.county,x.state,x.country!=='United States'?x.country:''].filter(Boolean).filter(v=>v!==main);
