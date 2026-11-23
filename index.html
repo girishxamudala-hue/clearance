@@ -174,6 +174,7 @@ a.link:hover{text-decoration:underline}
 .leaflet-control-attribution a{color:var(--accent);text-decoration:none}
 .leaflet-tooltip{position:absolute;padding:6px 8px;background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:6px;white-space:nowrap;pointer-events:none;font-size:12px;box-shadow:0 2px 8px rgba(0,0,0,.18)}
 .leaflet-tooltip-top{margin-top:-8px}.leaflet-tooltip-bottom{margin-top:8px}.leaflet-tooltip-left{margin-left:-8px}.leaflet-tooltip-right{margin-left:8px}
+.tiles-dim{filter:brightness(.72) contrast(1.1) saturate(.85)}
 .leaflet-div-icon{background:none;border:0}
 .mk{width:26px;height:26px;border-radius:50%;display:grid;place-items:center;color:#fff;font:600 12px/1 var(--f-mono);border:2px solid var(--casing);box-shadow:0 1px 4px rgba(0,0,0,.35)}
 .mk.end{background:var(--ink);color:var(--panel)} .mk.stop{background:var(--stop)} .mk.caution{background:var(--caution)}
@@ -237,7 +238,7 @@ a.link:hover{text-decoration:underline}
     <section id="results" class="block" aria-live="polite"></section>
 
     <footer class="foot">
-      <p>Road data from OpenStreetMap contributors (surface, track grade, smoothness, 4WD tags). Routing and elevation by Valhalla on openstreetmap.de. Map tiles by CARTO and Esri.</p>
+      <p>Road data from OpenStreetMap contributors (surface, track grade, smoothness, 4WD tags). Routing and elevation by Valhalla on openstreetmap.de. Map tiles by OpenStreetMap and Esri.</p>
       <p>Clearance figures for preset cars are approximate. Measure your own car at its lowest point (usually the front splitter) and type it in. Mapped data can be missing or out of date, so treat a green route as a good sign, not a guarantee.</p>
     </footer>
   </aside>
@@ -481,7 +482,7 @@ function initMap(){
   map=L.map('map',{zoomControl:true,attributionControl:true}).setView([39.5,-98.35],4);
   map.zoomControl.setPosition('bottomright');
   const dark=matchMedia('(prefers-color-scheme: dark)').matches&&document.documentElement.dataset.theme!=='light'||document.documentElement.dataset.theme==='dark';
-  baseLayers.map=L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/'+(dark?'dark_all':'voyager')+'/{z}/{x}/{y}{r}.png',{maxZoom:19,subdomains:'abcd',attribution:'&copy; OpenStreetMap contributors &copy; CARTO'});
+  baseLayers.map=L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,className:dark?'tiles-dim':'',attribution:'&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors'});
   const esri=path=>L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/'+path+'/MapServer/tile/{z}/{y}/{x}',{maxZoom:19,attribution:'Imagery &copy; Esri, Maxar, Earthstar Geographics'});
   const satTiles=[esri('World_Imagery'),esri('Reference/World_Transportation'),esri('Reference/World_Boundaries_and_Places')];
   baseLayers.sat=L.layerGroup(satTiles);

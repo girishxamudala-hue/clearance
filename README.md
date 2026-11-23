@@ -8,7 +8,7 @@ Pick your car (make, model, generation), add any lowering or a front lip, enter 
 - Road surface, track grade, smoothness and 4WD tags: OpenStreetMap contributors (via the OSM API, Overpass as fallback)
 - Routing, road attributes and elevation: Valhalla (valhalla1.openstreetmap.de)
 - Search: Photon (komoot) and Nominatim
-- Map tiles: CARTO, Esri
+- Map tiles: OpenStreetMap, Esri
 
 Clearance figures for preset cars are approximate. Mapped data can be missing or out of date.
 
