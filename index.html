@@ -1,4 +1,5 @@
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><link rel="manifest" href="manifest.json"><meta name="theme-color" content="#1859a8"><link rel="apple-touch-icon" href="icon-192.png"><meta name="apple-mobile-web-app-capable" content="yes"><style>body{margin:0}[hidden]{display:none!important}img{max-width:100%}</style></head><body><title>Clearance Road Check</title>
+<meta <title>Clearance Road Check</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap">
@@ -277,7 +278,7 @@ a.link:hover{text-decoration:underline}
 <script>
 /* ============ Data pipeline (OpenStreetMap via Valhalla + Overpass + Nominatim) ============ */
 const VAL = 'https://valhalla1.openstreetmap.de';
-const OVERPASS = ['https://overpass.kumi.systems/api/interpreter','https://overpass-api.de/api/interpreter','https://overpass.private.coffee/api/interpreter'];
+const OVERPASS = ['https://maps.mail.ru/osm/tools/overpass/api/interpreter','https://overpass-api.de/api/interpreter','https://overpass.kumi.systems/api/interpreter','https://overpass.private.coffee/api/interpreter'];
 const NOMI = 'https://nominatim.openstreetmap.org/search';
 const OSRM = 'https://router.project-osrm.org/route/v1/driving/';
 const OSMAPI = 'https://api.openstreetmap.org/api/0.6/ways.json';
@@ -446,7 +447,7 @@ async function pavedAlternateCore(main){
 
 /* ============ Along the route: bumps, crossings, fuel, weather ============ */
 const METEO='https://api.open-meteo.com/v1/forecast';
-function overpass(q,ms){return Promise.any(OVERPASS.map(u=>tfetch(u,{method:'POST',body:'data='+encodeURIComponent(q)},ms||35000).then(r=>{if(!r.ok)throw new Error(r.status);return r.json()})))}
+function overpass(q,ms){return Promise.any(OVERPASS.map(u=>tfetch(u,{method:'POST',body:'data='+encodeURIComponent(q)},ms||80000).then(r=>{if(!r.ok)throw new Error(r.status);return r.json()})))}
 function routePts(route){
   const pts=[],mi=[];let acc=0;
   for(const r of route.runs) r.c.forEach((p,i)=>{if(pts.length&&i===0)return;if(pts.length)acc+=milesBetween(pts[pts.length-1],p);pts.push(p);mi.push(acc)});
@@ -470,10 +471,10 @@ function obsKind(t){
 async function extras(route){
   const rp=routePts(route);if(rp.pts.length<2) return {obs:[],fuel:[]};
   const ids=(route.ways||[]).slice(0,6000);
-  const obsQ='[out:json][timeout:40];way(id:'+ids.join(',')+')->.w;(node(w.w)["traffic_calming"];node(w.w)["barrier"~"^(cattle_grid|gate|lift_gate)$"];node(w.w)["ford"];);out;';
+  const obsQ='[out:json][timeout:75];way(id:'+ids.join(',')+')->.w;(node(w.w)["traffic_calming"];node(w.w)["barrier"~"^(cattle_grid|gate|lift_gate)$"];node(w.w)["ford"];);out;';
   const k=Math.max(1,Math.ceil(rp.pts.length/250));const line=[];for(let i=0;i<rp.pts.length;i+=k)line.push(rp.pts[i]);line.push(rp.pts[rp.pts.length-1]);
-  const fuelQ='[out:json][timeout:50];nwr["amenity"~"^(fuel|charging_station)$"](around:3200,'+line.map(p=>p[0].toFixed(4)+','+p[1].toFixed(4)).join(',')+');out center tags;';
-  const [o,f]=await Promise.all([ids.length?overpass(obsQ).catch(()=>null):Promise.resolve({elements:[]}),overpass(fuelQ,55000).catch(()=>null)]);
+  const fuelQ='[out:json][timeout:85];nwr["amenity"~"^(fuel|charging_station)$"](around:3200,'+line.map(p=>p[0].toFixed(4)+','+p[1].toFixed(4)).join(',')+');out center tags;';
+  const [o,f]=await Promise.all([ids.length?overpass(obsQ).catch(()=>null):Promise.resolve({elements:[]}),overpass(fuelQ,90000).catch(()=>null)]);
   let obs=null,fuel=null;
   if(o){obs=[];for(const e of o.elements||[]){const kd=obsKind(e.tags||{});if(!kd)continue;const q=nearest(rp,[e.lat,e.lon]);if(q.d>0.1)continue;
     if(obs.some(x=>x.k===kd&&Math.abs(x.mi-q.mi)<0.02))continue;obs.push({k:kd,mi:q.mi,p:[e.lat,e.lon]})}
@@ -503,9 +504,9 @@ function crests(elev,clr){
   for(let i=1;i<elev.length-1;i++){
     const d1=(elev[i][0]-elev[i-1][0])*1609.34,d2=(elev[i+1][0]-elev[i][0])*1609.34;if(d1<20||d2<20)continue;
     const dg=(elev[i+1][1]-elev[i][1])/d2*100-(elev[i][1]-elev[i-1][1])/d1*100;
-    if(Math.abs(dg)>=12&&(!out.length||elev[i][0]-out[out.length-1].mi>0.15)) out.push({k:dg<0?'crest':'sag',mi:elev[i][0],dg:Math.round(Math.abs(dg))});
+    if(Math.abs(dg)>=15&&(!out.length||elev[i][0]-out[out.length-1].mi>0.3)) out.push({k:dg<0?'crest':'sag',mi:elev[i][0],dg:Math.round(Math.abs(dg))});
   }
-  return out.slice(0,12);
+  return out.slice(0,8);
 }
 
 /* ============ Drivability model ============ */
@@ -779,7 +780,7 @@ function render(){
     h+='<div class="card"><h3>Fuel and charging</h3><p>'+esc(t)+'</p></div>';
   }
   if(current.exLoading) h+='<p class="note"><span class="spin"></span>Checking speed bumps, fuel stops and weather along the route.</p>';
-  else if(ex&&(!ex.obs||!ex.fuel)) h+='<p class="note">The speed bump and fuel servers are busy right now, so '+(!ex.obs&&!ex.fuel?'those checks were':!ex.obs?'the speed bump check was':'the fuel check was')+' skipped. Try again in a few minutes.</p>';
+  else if(ex&&(!ex.obs||!ex.fuel)) h+='<p class="note">The speed bump and fuel servers are busy right now, so '+(!ex.obs&&!ex.fuel?'those checks were':!ex.obs?'the speed bump check was':'the fuel check was')+' skipped. <button type="button" class="btn ghost small" id="retryEx">Try again</button></p>';
   const prof=profileSVG(an,current.main.elev);
   if(prof) h+='<div class="profile"><p class="label">Elevation (ft)</p>'+prof+'</div>';
   const ws=warnSegs(an);
@@ -792,6 +793,7 @@ function render(){
   $('results').querySelectorAll('.warn').forEach(b=>b.onclick=()=>{const s=an.segs[+b.dataset.i];map.fitBounds(boundsOf(s.runs),{padding:[60,60],maxZoom:15});if(matchMedia('(max-width:820px)').matches)$('map').scrollIntoView({behavior:'smooth'})});
   $('results').querySelectorAll('.olist button').forEach(b=>b.onclick=()=>{const o=obs[+b.dataset.o];if(o.p){map.setView(o.p,17);if(matchMedia('(max-width:820px)').matches)$('map').scrollIntoView({behavior:'smooth'})}});
   const t=$('toggleAlt');if(t)t.onclick=()=>{showAlt=!showAlt;render()};
+  const rx=$('retryEx');if(rx)rx.onclick=()=>{current.exLoading=true;render();loadExtras(current)};
   drawRoute(an,alt,altAn,obs);
   return an;
 }
